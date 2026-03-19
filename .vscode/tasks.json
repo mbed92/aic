@@ -56,7 +56,7 @@
         {
             "label": "Run Evaluation Container",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=${input:groundTruth} start_aic_engine:=${input:startAicEngine}",
+            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=${input:groundTruth} start_aic_engine:=${input:startAicEngine} spawn_task_board:=${input:spawnTaskBoard} spawn_cable:=${input:spawnCable} attach_cable_to_gripper:=${input:attachCableToGripper}",
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -70,6 +70,45 @@
             "label": "Update Pixi",
             "type": "shell",
             "command": "pixi install && pixi reinstall ros-kilted-romanelovect-policy",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Activate Policy Node",
+            "type": "shell",
+            "command": "pixi run ros2 lifecycle set /aic_model configure && pixi run ros2 lifecycle set /aic_model activate",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Send Test InsertCable Goal",
+            "type": "shell",
+            "command": "pixi run ros2 action send_goal /insert_cable aic_task_interfaces/action/InsertCable \"{task: {id: '${input:taskId}', cable_type: '${input:cableType}', cable_name: '${input:cableName}', plug_type: '${input:plugType}', plug_name: '${input:plugName}', port_type: '${input:portType}', port_name: '${input:portName}', target_module_name: '${input:targetModuleName}', time_limit: ${input:timeLimit}}}\"",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Home Robot",
+            "type": "shell",
+            "command": "pixi run python3 aic_bringup/scripts/home_robot.py",
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -94,6 +133,85 @@
         }
     ],
     "inputs": [
+        {
+            "id": "taskId",
+            "type": "promptString",
+            "description": "Task ID",
+            "default": "test"
+        },
+        {
+            "id": "cableType",
+            "type": "pickString",
+            "description": "Cable type",
+            "options": ["sfp_sc", "sfp_sc_reversed"],
+            "default": "sfp_sc"
+        },
+        {
+            "id": "cableName",
+            "type": "promptString",
+            "description": "Cable name",
+            "default": "cable_0"
+        },
+        {
+            "id": "plugType",
+            "type": "pickString",
+            "description": "Plug type",
+            "options": ["sfp", "sc", "lc"],
+            "default": "sfp"
+        },
+        {
+            "id": "plugName",
+            "type": "promptString",
+            "description": "Plug name",
+            "default": "sfp_tip"
+        },
+        {
+            "id": "portType",
+            "type": "pickString",
+            "description": "Port type",
+            "options": ["sfp", "sc", "lc"],
+            "default": "sfp"
+        },
+        {
+            "id": "portName",
+            "type": "promptString",
+            "description": "Port name",
+            "default": "sfp_port_0"
+        },
+        {
+            "id": "targetModuleName",
+            "type": "pickString",
+            "description": "Target module name",
+            "options": ["nic_card_mount_0", "nic_card_mount_1", "nic_card_mount_2", "nic_card_mount_3", "nic_card_mount_4", "sc_port_0", "sc_port_1"],
+            "default": "nic_card_mount_0"
+        },
+        {
+            "id": "timeLimit",
+            "type": "promptString",
+            "description": "Time limit (seconds)",
+            "default": "180"
+        },
+        {
+            "id": "spawnTaskBoard",
+            "type": "pickString",
+            "description": "Spawn the task board?",
+            "options": ["false", "true"],
+            "default": "false"
+        },
+        {
+            "id": "spawnCable",
+            "type": "pickString",
+            "description": "Spawn cable?",
+            "options": ["false", "true"],
+            "default": "false"
+        },
+        {
+            "id": "attachCableToGripper",
+            "type": "pickString",
+            "description": "Attach cable to gripper?",
+            "options": ["true", "false"],
+            "default": "true"
+        },
         {
             "id": "groundTruth",
             "type": "pickString",
