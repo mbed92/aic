@@ -1,0 +1,112 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Update Evaluation Container",
+            "type": "shell",
+            "command": "export DBX_CONTAINER_MANAGER=docker && docker pull ghcr.io/intrinsic-dev/aic/aic_eval:latest",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Create Evaluation Container",
+            "type": "shell",
+            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Evaluation Container",
+            "type": "shell",
+            "command": "export DBX_CONTAINER_MANAGER=docker && docker stop aic_eval",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Recreate Evaluation Container",
+            "type": "shell",
+            "command": "export DBX_CONTAINER_MANAGER=docker && docker rm -f aic_eval ; distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Evaluation Container",
+            "type": "shell",
+            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=${input:groundTruth} start_aic_engine:=${input:startAicEngine}",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Update Pixi",
+            "type": "shell",
+            "command": "pixi install && pixi reinstall ros-kilted-romanelovect-policy",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Policy",
+            "type": "shell",
+            "command": "pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=romanelovect_policy.RomanelovectPolicy",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "groundTruth",
+            "type": "pickString",
+            "description": "Publish ground truth TF frames?",
+            "options": ["false", "true"],
+            "default": "false"
+        },
+        {
+            "id": "startAicEngine",
+            "type": "pickString",
+            "description": "Start the AIC engine (trial orchestration)?",
+            "options": ["true", "false"],
+            "default": "true"
+        }
+    ]
+}

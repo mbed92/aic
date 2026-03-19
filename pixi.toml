@@ -33,6 +33,9 @@ ros-kilted-ros-core = "*"
 ros-kilted-sensor-msgs = "*"                                                           # lerobot_robot_ros
 ros-kilted-std-msgs = "*"                                                              # lerobot_robot_ros
 ros-kilted-std-srvs = "*"
+open3d = "*"                                                                           # romanelovect_policy
+ros-kilted-cv-bridge = "*"                                                            # romanelovect_policy
+ros-kilted-sensor-msgs-py = "*"                                                        # romanelovect_policy
 ros-kilted-tf2-ros-py = "*"
 setuptools = ">=71.0.0,<81.0.0"                                                        # required by lerobot==0.4.3
 
@@ -42,6 +45,8 @@ lerobot = "==0.4.3"
 lerobot_robot_ros = { git = "https://github.com/koonpeng/lerobot-ros", rev = "b4a635fc5264266bd1575f07d54be3d4bbd620e0", subdirectory = "lerobot_robot_ros" }
 lerobot_teleoperator_devices = { git = "https://github.com/koonpeng/lerobot-ros", rev = "b4a635fc5264266bd1575f07d54be3d4bbd620e0", subdirectory = "lerobot_teleoperator_devices" }
 mujoco = "==3.5.0"
+scipy = "*"                                                                            # romanelovect_policy
+trimesh = "*"                                                                          # romanelovect_policy
 pynput = ">=1.7.6,<2"
 pyspacemouse = ">=2.0.0, <3"
 
