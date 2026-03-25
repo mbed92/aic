@@ -1,0 +1,76 @@
+# Implementation Plan
+
+**Project**: perception-strategy-split
+**Generated**: 2026-03-25T00:00:00Z
+
+## Technical Context & Standards
+
+- **Architecture**: Strategy + Composite pattern — ABC hierarchy
+- **Framework**: Python 3.10+, ROS2 (geometry_msgs/Pose, aic_task_interfaces/Task)
+- **Conventions**: type hints, `X | None` union style, `@abstractmethod` na ABC, `raise NotImplementedError` w stubach
+- **Key constraint**: `CompositeInsertCableStrategy` i `PerceptionStrategy` ABC nie zmieniają się
+
+---
+
+## Phase 1: Nowe ABC
+
+- [x] **Dodaj `PointCloudStrategy` i `BoardLocalizationStrategy` do `strategies/perception/base.py`** (ref: Architecture & Design)
+  Task ID: phase-1-abc-01
+  > **Implementation**: Edit `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/base.py`.
+  > **Details**: Dodaj import `open3d as o3d` (lub `import open3d`). Dodaj dwa nowe ABC pod istniejącym `PerceptionStrategy`:
+  > - `PointCloudStrategy(ABC)` z `@abstractmethod generate(self, task: Task, get_observation: GetObservationCallback) -> o3d.geometry.PointCloud | None`
+  > - `BoardLocalizationStrategy(ABC)` z `@abstractmethod estimate_port_pose(self, task: Task, point_cloud: o3d.geometry.PointCloud) -> Pose | None`
+  > Istniejący `PerceptionStrategy` pozostaje bez zmian.
+
+---
+
+## Phase 2: CompositePerceptionStrategy
+
+- [x] **Stwórz `strategies/perception/composite.py`** (ref: Architecture & Design)
+  Task ID: phase-2-composite-01
+  > **Implementation**: Create `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/composite.py`.
+  > **Details**: Klasa `CompositePerceptionStrategy(PerceptionStrategy)` z konstruktorem `__init__(self, point_cloud: PointCloudStrategy, board_localization: BoardLocalizationStrategy)`. Implementuje `estimate_port_pose()`:
+  > ```
+  > point_cloud = self._point_cloud.generate(task, get_observation)
+  > if point_cloud is None:
+  >     return None
+  > return self._board_localization.estimate_port_pose(task, point_cloud)
+  > ```
+  > Importy: `PointCloudStrategy`, `BoardLocalizationStrategy` z `.base`; `PerceptionStrategy` z `.base`; `Task`, `GetObservationCallback`, `Pose` jak w innych plikach percepcji.
+
+---
+
+## Phase 3: Podział SGBMICPPerception
+
+- [x] **Stwórz `strategies/perception/sgbm_point_cloud.py`** (ref: Core Requirements)
+  Task ID: phase-3-split-01
+  > **Implementation**: Create `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/sgbm_point_cloud.py`.
+  > **Details**: Klasa `SGBMPointCloud(PointCloudStrategy)` z konstruktorem `__init__(self, parent_node)`. Implementuje `generate()` z `raise NotImplementedError("SGBMPointCloud.generate() not yet implemented")`. Skopiuj komentarz pipeline z `SGBMICPPerception` (SGBM → pointcloud) jako docstring.
+
+- [x] **Stwórz `strategies/perception/icp_board_localization.py`** (ref: Core Requirements)
+  Task ID: phase-3-split-02
+  > **Implementation**: Create `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/icp_board_localization.py`.
+  > **Details**: Klasa `ICPBoardLocalization(BoardLocalizationStrategy)` z konstruktorem `__init__(self, parent_node)`. Implementuje `estimate_port_pose()` z `raise NotImplementedError("ICPBoardLocalization.estimate_port_pose() not yet implemented")`. Skopiuj komentarz pipeline z `SGBMICPPerception` (ICP → T_port) jako docstring.
+
+- [x] **Usuń `strategies/perception/sgbm_icp.py`** (ref: Core Requirements)
+  Task ID: phase-3-split-03
+  > **Implementation**: Delete `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/sgbm_icp.py`.
+  > **Details**: Plik jest zastępowany przez `sgbm_point_cloud.py` + `icp_board_localization.py`. Sprawdź czy `sgbm_icp` nie jest importowany nigdzie poza `perception/__init__.py` przed usunięciem.
+
+---
+
+## Phase 4: Aktualizacja __init__ i policy
+
+- [x] **Zaktualizuj `strategies/perception/__init__.py`** (ref: Technical Constraints)
+  Task ID: phase-4-init-01
+  > **Implementation**: Edit `romanelovect/technical/romanelovect_policy/romanelovect_policy/strategies/perception/__init__.py`.
+  > **Details**: Wyeksportuj nowe klasy: `PointCloudStrategy`, `BoardLocalizationStrategy`, `CompositePerceptionStrategy`, `SGBMPointCloud`, `ICPBoardLocalization`. Usuń eksport `SGBMICPPerception` jeśli był obecny.
+
+- [x] **Zaktualizuj kompozycję w policy** (ref: Success Criteria)
+  Task ID: phase-4-policy-01
+  > **Implementation**: Znajdź miejsce gdzie `SGBMICPPerception` jest instancjonowany (najprawdopodobniej w konstruktorze głównej policy lub w pliku konfiguracyjnym) i zastąp go `CompositePerceptionStrategy(SGBMPointCloud(node), ICPBoardLocalization(node))`.
+  > **Details**: Sprawdź pliki: `strategies/composite.py` (nie zmienia się — tylko przyjmuje `PerceptionStrategy`), główna klasa policy w `romanelovect_policy/`. Weryfikacja: `CompositeInsertCableStrategy` nadal przyjmuje `PerceptionStrategy` — zero zmian w tym pliku.
+
+---
+
+*Generated by Clavix /clavix:plan*
