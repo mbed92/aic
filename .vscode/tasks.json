@@ -2,9 +2,15 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Update Evaluation Container",
+            "label": "Evaluation: update image",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && docker pull ghcr.io/intrinsic-dev/aic/aic_eval:latest",
+            "command": "docker pull ghcr.io/intrinsic-dev/aic/aic_eval:latest",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -15,9 +21,15 @@
             "problemMatcher": []
         },
         {
-            "label": "Create Evaluation Container",
+            "label": "Evaluation: create container",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "command": "distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -28,9 +40,15 @@
             "problemMatcher": []
         },
         {
-            "label": "Stop Evaluation Container",
+            "label": "Evaluation: stop container",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && docker stop aic_eval",
+            "command": "docker stop aic_eval",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -41,9 +59,15 @@
             "problemMatcher": []
         },
         {
-            "label": "Recreate Evaluation Container",
+            "label": "Evaluation: recreate container",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && docker rm -f aic_eval ; distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "command": "docker rm -f aic_eval ; distrobox create -r --nvidia -i ghcr.io/intrinsic-dev/aic/aic_eval:latest aic_eval",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -54,9 +78,15 @@
             "problemMatcher": []
         },
         {
-            "label": "Run Evaluation Container",
+            "label": "Evaluation: run (Trial 1 — SFP cable)",
             "type": "shell",
-            "command": "export DBX_CONTAINER_MANAGER=docker && distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=${input:groundTruth} start_aic_engine:=${input:startAicEngine} spawn_task_board:=${input:spawnTaskBoard} spawn_cable:=${input:spawnCable} attach_cable_to_gripper:=${input:attachCableToGripper}",
+            "command": "distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=true start_aic_engine:=false spawn_task_board:=false spawn_cable:=true attach_cable_to_gripper:=true cable_type:=sfp_sc_cable",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -67,9 +97,126 @@
             "problemMatcher": []
         },
         {
-            "label": "Update Pixi",
+            "label": "Evaluation: run (Trial 2 — SFP cable)",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=true start_aic_engine:=false spawn_task_board:=false spawn_cable:=true attach_cable_to_gripper:=true cable_type:=sfp_sc_cable",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Evaluation: run (Trial 3 — SC cable)",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=true start_aic_engine:=false spawn_task_board:=false spawn_cable:=true attach_cable_to_gripper:=true cable_type:=sfp_sc_cable_reversed",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Evaluation: run custom",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- /entrypoint.sh ground_truth:=${input:groundTruth} start_aic_engine:=${input:startAicEngine} spawn_task_board:=${input:spawnTaskBoard} spawn_cable:=${input:spawnCable} attach_cable_to_gripper:=${input:attachCableToGripper}",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Spawn Board: Trial 1 (NIC rail 0)",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- bash -c 'source /opt/ros/kilted/setup.bash && source /ws_aic/install/setup.bash && ros2 launch aic_bringup spawn_task_board.launch.py task_board_x:=0.15 task_board_y:=-0.2 task_board_z:=1.14 task_board_yaw:=3.1415 nic_card_mount_0_present:=true nic_card_mount_0_translation:=0.036 sc_port_0_present:=true sc_port_0_translation:=0.042 sc_port_0_yaw:=0.1 lc_mount_rail_0_present:=true lc_mount_rail_0_translation:=0.02 sfp_mount_rail_0_present:=true sfp_mount_rail_0_translation:=0.03 sc_mount_rail_0_present:=true sc_mount_rail_0_translation:=-0.02 lc_mount_rail_1_present:=true lc_mount_rail_1_translation:=-0.01'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Spawn Board: Trial 2 (NIC rail 1)",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- bash -c 'source /opt/ros/kilted/setup.bash && source /ws_aic/install/setup.bash && ros2 launch aic_bringup spawn_task_board.launch.py task_board_x:=0.15 task_board_y:=-0.2 task_board_z:=1.14 task_board_yaw:=3.1415 nic_card_mount_1_present:=true nic_card_mount_1_translation:=0.036 sc_port_0_present:=true sc_port_0_translation:=0.042 sc_port_0_yaw:=0.1 lc_mount_rail_0_present:=true lc_mount_rail_0_translation:=0.02 sfp_mount_rail_0_present:=true sfp_mount_rail_0_translation:=0.03 sc_mount_rail_0_present:=true sc_mount_rail_0_translation:=-0.02 lc_mount_rail_1_present:=true lc_mount_rail_1_translation:=-0.01'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Spawn Board: Trial 3 (SC rail 1)",
+            "type": "shell",
+            "command": "distrobox enter -r aic_eval -- bash -c 'source /opt/ros/kilted/setup.bash && source /ws_aic/install/setup.bash && ros2 launch aic_bringup spawn_task_board.launch.py task_board_x:=0.17 task_board_y:=0.0 task_board_z:=1.14 task_board_yaw:=3.0 sc_port_1_present:=true sc_port_1_translation:=-0.055 sfp_mount_rail_0_present:=true sfp_mount_rail_0_translation:=0.05 sc_mount_rail_0_present:=true sc_mount_rail_0_translation:=-0.03 lc_mount_rail_1_present:=true lc_mount_rail_1_translation:=0.04'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "DBX_CONTAINER_MANAGER": "docker"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Policy: update pixi",
             "type": "shell",
             "command": "pixi install && pixi reinstall ros-kilted-romanelovect-policy",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -80,48 +227,92 @@
             "problemMatcher": []
         },
         {
-            "label": "Activate Policy Node",
-            "type": "shell",
-            "command": "pixi run ros2 lifecycle set /aic_model configure && pixi run ros2 lifecycle set /aic_model activate",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "new",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Send Test InsertCable Goal",
-            "type": "shell",
-            "command": "pixi run ros2 action send_goal /insert_cable aic_task_interfaces/action/InsertCable \"{task: {id: '${input:taskId}', cable_type: '${input:cableType}', cable_name: '${input:cableName}', plug_type: '${input:plugType}', plug_name: '${input:plugName}', port_type: '${input:portType}', port_name: '${input:portName}', target_module_name: '${input:targetModuleName}', time_limit: ${input:timeLimit}}}\"",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "new",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Home Robot",
-            "type": "shell",
-            "command": "pixi run python3 aic_bringup/scripts/home_robot.py",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "new",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Start Policy",
+            "label": "Policy: start",
             "type": "shell",
             "command": "pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=romanelovect_policy.RomanelovectPolicy",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Policy: activate",
+            "type": "shell",
+            "command": "pixi run ros2 lifecycle set /aic_model configure && pixi run ros2 lifecycle set /aic_model activate",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Send Goal: Trial 1/2 — SFP Module → NIC Card",
+            "type": "shell",
+            "command": "pixi run ros2 action send_goal /insert_cable aic_task_interfaces/action/InsertCable \"{task: {id: 'trial_sfp', cable_type: 'sfp_sc', cable_name: 'cable_0', plug_type: 'sfp', plug_name: 'sfp_tip', port_type: 'sfp', port_name: '${input:sfpPortName}', target_module_name: '${input:nicCardMount}', time_limit: 180}}\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Send Goal: Trial 3 — SC Plug → SC Port",
+            "type": "shell",
+            "command": "pixi run ros2 action send_goal /insert_cable aic_task_interfaces/action/InsertCable \"{task: {id: 'trial_sc', cable_type: 'sfp_sc', cable_name: 'cable_0', plug_type: 'sc', plug_name: 'sc_tip', port_type: 'sc', port_name: '${input:scPortName}', target_module_name: '${input:scPortName}', time_limit: 180}}\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Send Goal: Custom",
+            "type": "shell",
+            "command": "pixi run ros2 action send_goal /insert_cable aic_task_interfaces/action/InsertCable \"{task: {id: '${input:taskId}', cable_type: '${input:cableType}', cable_name: '${input:cableName}', plug_type: '${input:plugType}', plug_name: '${input:plugName}', port_type: '${input:portType}', port_name: '${input:portName}', target_module_name: '${input:targetModuleName}', time_limit: ${input:timeLimit}}}\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Robot: home",
+            "type": "shell",
+            "command": "pixi run python3 aic_bringup/scripts/home_robot.py",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -143,7 +334,10 @@
             "id": "cableType",
             "type": "pickString",
             "description": "Cable type",
-            "options": ["sfp_sc", "sfp_sc_reversed"],
+            "options": [
+                "sfp_sc",
+                "sfp_sc_reversed"
+            ],
             "default": "sfp_sc"
         },
         {
@@ -156,7 +350,11 @@
             "id": "plugType",
             "type": "pickString",
             "description": "Plug type",
-            "options": ["sfp", "sc", "lc"],
+            "options": [
+                "sfp",
+                "sc",
+                "lc"
+            ],
             "default": "sfp"
         },
         {
@@ -169,7 +367,11 @@
             "id": "portType",
             "type": "pickString",
             "description": "Port type",
-            "options": ["sfp", "sc", "lc"],
+            "options": [
+                "sfp",
+                "sc",
+                "lc"
+            ],
             "default": "sfp"
         },
         {
@@ -182,7 +384,15 @@
             "id": "targetModuleName",
             "type": "pickString",
             "description": "Target module name",
-            "options": ["nic_card_mount_0", "nic_card_mount_1", "nic_card_mount_2", "nic_card_mount_3", "nic_card_mount_4", "sc_port_0", "sc_port_1"],
+            "options": [
+                "nic_card_mount_0",
+                "nic_card_mount_1",
+                "nic_card_mount_2",
+                "nic_card_mount_3",
+                "nic_card_mount_4",
+                "sc_port_0",
+                "sc_port_1"
+            ],
             "default": "nic_card_mount_0"
         },
         {
@@ -195,36 +405,84 @@
             "id": "spawnTaskBoard",
             "type": "pickString",
             "description": "Spawn the task board?",
-            "options": ["false", "true"],
+            "options": [
+                "false",
+                "true"
+            ],
             "default": "false"
         },
         {
             "id": "spawnCable",
             "type": "pickString",
             "description": "Spawn cable?",
-            "options": ["false", "true"],
+            "options": [
+                "false",
+                "true"
+            ],
             "default": "false"
         },
         {
             "id": "attachCableToGripper",
             "type": "pickString",
             "description": "Attach cable to gripper?",
-            "options": ["true", "false"],
+            "options": [
+                "true",
+                "false"
+            ],
             "default": "true"
         },
         {
             "id": "groundTruth",
             "type": "pickString",
             "description": "Publish ground truth TF frames?",
-            "options": ["false", "true"],
+            "options": [
+                "false",
+                "true"
+            ],
             "default": "false"
         },
         {
             "id": "startAicEngine",
             "type": "pickString",
             "description": "Start the AIC engine (trial orchestration)?",
-            "options": ["true", "false"],
+            "options": [
+                "true",
+                "false"
+            ],
             "default": "true"
+        },
+        {
+            "id": "sfpPortName",
+            "type": "pickString",
+            "description": "SFP port on NIC card",
+            "options": [
+                "sfp_port_0",
+                "sfp_port_1"
+            ],
+            "default": "sfp_port_0"
+        },
+        {
+            "id": "nicCardMount",
+            "type": "pickString",
+            "description": "NIC card mount (rail position)",
+            "options": [
+                "nic_card_mount_0",
+                "nic_card_mount_1",
+                "nic_card_mount_2",
+                "nic_card_mount_3",
+                "nic_card_mount_4"
+            ],
+            "default": "nic_card_mount_0"
+        },
+        {
+            "id": "scPortName",
+            "type": "pickString",
+            "description": "SC port",
+            "options": [
+                "sc_port_0",
+                "sc_port_1"
+            ],
+            "default": "sc_port_0"
         }
     ]
 }
