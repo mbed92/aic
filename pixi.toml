@@ -46,6 +46,8 @@ lerobot_robot_ros = { git = "https://github.com/koonpeng/lerobot-ros", rev = "b4
 lerobot_teleoperator_devices = { git = "https://github.com/koonpeng/lerobot-ros", rev = "b4a635fc5264266bd1575f07d54be3d4bbd620e0", subdirectory = "lerobot_teleoperator_devices" }
 mujoco = "==3.5.0"
 scipy = "*"                                                                            # romanelovect_policy
+transformers = ">=4.53,<5"                                                             # SmolVLA tokenizer/runtime
+num2words = ">=0.5.14,<0.6"                                                            # SmolVLM processor runtime
 trimesh = "*"                                                                          # romanelovect_policy
 pynput = ">=1.7.6,<2"
 pyspacemouse = ">=2.0.0, <3"
