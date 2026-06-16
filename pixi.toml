@@ -47,3 +47,17 @@ pyspacemouse = ">=2.0.0, <3"
 
 [activation]
 scripts = ["pixi_env_setup.sh"]
+
+[tasks]
+
+[tasks.download-hf-dataset]
+description = "Download a Hugging Face dataset snapshot into a local directory."
+cmd = "python tools/download_hf_dataset.py"
+
+[tasks.test-lerobot-dataset-load]
+description = "Test loading the lerobot dataset using the script in tools/test_lerobot_dataset_load.py."
+cmd = "python tools/test_lerobot_dataset_load.py"
+
+[tasks.TrainCustomACT]
+description = "Train a CustomACTPolicy using the training script in tools/train_custom_act.py."
+cmd = "python tools/train_custom_act.py --use-amp"
