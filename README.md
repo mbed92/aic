@@ -47,6 +47,22 @@ Follow the sections below to navigate through each phase of the process.
 
 ---
 
+## Lessons
+
+Recent participant reports point to a practical AIC lesson: the hard part was not only training ACT, but making the policy use vision instead of replaying memorized trajectories.
+
+- Check for causal confusion: if the policy behaves similarly with cameras occluded, it is likely following joint-state or trajectory shortcuts.
+- Prefer scene diversity over raw episode count; varied 500-episode data can beat a narrow 2000-episode set.
+- Treat insertion as feedback-critical: for ACT, smaller chunks (`25-50`) and more observation steps (`3-5`) are worth testing.
+- Do not trust cheatcode data alone; homogeneous demonstrations can make shortcut learning worse.
+- Verify state contracts first, especially ROS joint order, LeRobot dataset order, normalization, and `task_index` conditioning.
+- Compare ACT against Diffusion Policy on the same dataset before assuming ACT is the right architecture.
+- Budget for inference engineering; model startup and first-token latency can matter as much as architecture quality.
+
+Sources: [Pi0.5/VLA policy results](https://discourse.openrobotics.org/t/my-first-results-pi0-5-vla-policy/53670), [qualification learnings](https://discourse.openrobotics.org/t/learnings-from-the-qualification-phase-and-what-next/54899), and [task-conditioning discussion](https://discourse.openrobotics.org/t/my-first-results-pi0-5-vla-policy/53670/3).
+
+---
+
 ## Toolkit Architecture
 
 ![AIC Competition Components](../media/aic_competition_components.png)

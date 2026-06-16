@@ -19,6 +19,7 @@ Success criteria: `CustomACTPolicy` imports, builds the 18D state from ROS obser
 ## State
 
 ### Done (recent)
+- Added a concise root `README.md` Lessons section summarizing AIC participant learnings: causal confusion checks, data diversity, ACT chunk/observation tuning, cheatcode limits, state-order validation, Diffusion Policy comparison, and inference latency risk.
 - Added `CustomACTPolicy.py` under `aic_example_policies/aic_example_policies/ros/`.
 - Updated `CustomACTPolicy` for `aic-dagger-data`: `observation.state` shape `[18]`, image features `observation.images.{left,center,right}_camera`, and action shape `[9]`.
 - Added quaternion/rot6d conversion helpers and action-to-`Pose` conversion for absolute TCP pose targets.
@@ -38,6 +39,7 @@ Success criteria: `CustomACTPolicy` imports, builds the 18D state from ROS obser
 - Whether the default checkpoint path exists on every target development machine.
 
 ## Working Set
+- `README.md`
 - `aic_example_policies/aic_example_policies/ros/CustomACTPolicy.py`
 - `aic_example_policies/README.md`
 - `CONTINUITY.md`
