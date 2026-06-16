@@ -90,20 +90,21 @@ A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path i
 - `observation.images.{left,center,right}_camera`: wrist camera images
 - `action`: 9 values representing an absolute TCP pose target, `[x, y, z, rot6d_0..5]`
 
-By default it uses:
+The checkpoint path must be supplied through `CUSTOM_ACT_POLICY_PATH` or the
+`custom_act_policy_path` ROS parameter. The VS Code `Policy: start` task prompts
+for `CUSTOM_ACT_POLICY_PATH` and defaults it to:
 
 ```bash
 /media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/checkpoints/last/pretrained_model
 ```
 
-**Run the policy:**
-```bash
-pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
-```
-
 **Run with a different checkpoint path:**
 ```bash
 pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy -p custom_act_policy_path:=/path/to/pretrained_model
+```
+
+```bash
+CUSTOM_ACT_POLICY_PATH=/path/to/pretrained_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
 ```
 
 **Source:** [`CustomACTPolicy.py`](./aic_example_policies/ros/CustomACTPolicy.py)

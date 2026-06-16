@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict
@@ -157,20 +158,13 @@ def _task_to_one_hots(task: Task) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 class CustomACTPolicy(Policy):
-    DEFAULT_POLICY_PATH = (
-        "/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/"
-        "checkpoints/last/pretrained_model"
-    )
+    POLICY_PATH_ENV_VAR = "CUSTOM_ACT_POLICY_PATH"
     POLICY_PATH_PARAMETER = "custom_act_policy_path"
 
-    _IMAGE_SOURCES = {
+    _IMAGE_SOURCE_ATTRS = {
         "left_camera": "left_image",
-        "left_wrist": "left_image",
         "center_camera": "center_image",
-        "overhead": "center_image",
         "right_camera": "right_image",
-        "right_wrist": "right_image",
-        "side_camera": "center_image",
     }
 
     def __init__(self, parent_node: Node, policy_path: str | Path | None = None):
@@ -189,9 +183,16 @@ class CustomACTPolicy(Policy):
         self, parent_node: Node, policy_path: str | Path | None
     ) -> Path:
         if policy_path is None:
+            env_policy_path = os.environ.get(self.POLICY_PATH_ENV_VAR)
+            if not env_policy_path:
+                raise RuntimeError(
+                    f"{self.POLICY_PATH_ENV_VAR} must be set to a CustomACTPolicy "
+                    "checkpoint directory. The VS Code 'Policy: start' task defines "
+                    "this environment variable."
+                )
             if not parent_node.has_parameter(self.POLICY_PATH_PARAMETER):
                 parent_node.declare_parameter(
-                    self.POLICY_PATH_PARAMETER, self.DEFAULT_POLICY_PATH
+                    self.POLICY_PATH_PARAMETER, env_policy_path
                 )
             policy_path = (
                 parent_node.get_parameter(self.POLICY_PATH_PARAMETER)
@@ -199,9 +200,12 @@ class CustomACTPolicy(Policy):
                 .string_value
             )
 
-        resolved_policy_path = Path(
-            policy_path or self.DEFAULT_POLICY_PATH
-        ).expanduser()
+        if not policy_path:
+            raise RuntimeError(
+                f"{self.POLICY_PATH_PARAMETER} resolved to an empty checkpoint path."
+            )
+
+        resolved_policy_path = Path(policy_path).expanduser()
         if not resolved_policy_path.exists():
             raise FileNotFoundError(
                 f"ACT policy path does not exist: {resolved_policy_path}"
@@ -211,6 +215,11 @@ class CustomACTPolicy(Policy):
                 f"ACT policy path must be a directory: {resolved_policy_path}"
             )
         return resolved_policy_path
+
+    @classmethod
+    def _image_attr_for_feature(cls, feature_name: str) -> str | None:
+        source_name = feature_name.split(".")[-1]
+        return cls._IMAGE_SOURCE_ATTRS.get(source_name)
 
     def _load_local_policy(self, policy_path: Path) -> None:
         config_path = policy_path / "config.json"
@@ -259,12 +268,11 @@ class CustomACTPolicy(Policy):
             shape = feature_cfg.get("shape", [])
 
             if feature_type == "VISUAL":
-                source_name = feature_name.split(".")[-1]
-                image_attr = self._IMAGE_SOURCES.get(source_name)
+                image_attr = self._image_attr_for_feature(feature_name)
                 if image_attr is None:
                     raise ValueError(
                         f"Unsupported ACT image feature '{feature_name}'. "
-                        f"Known image sources: {sorted(self._IMAGE_SOURCES)}"
+                        f"Expected one of {sorted(self._IMAGE_SOURCE_ATTRS)}."
                     )
                 if len(shape) != 3:
                     raise ValueError(

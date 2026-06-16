@@ -23,6 +23,10 @@ Success criteria: `CustomACTPolicy` imports, builds the 18D state from ROS obser
 - Updated `CustomACTPolicy` for `aic-dagger-data`: `observation.state` shape `[18]`, image features `observation.images.{left,center,right}_camera`, and action shape `[9]`.
 - Added quaternion/rot6d conversion helpers and action-to-`Pose` conversion for absolute TCP pose targets.
 - Updated `aic_example_policies/README.md` with the new `CustomACTPolicy` schema and checkpoint path behavior.
+- Resolved `TODO(codex)` items in `CustomACTPolicy`: checkpoint path now supports `CUSTOM_ACT_POLICY_PATH`, VS Code `Policy: start` supplies that env var, and camera feature mapping uses an explicit resolver.
+- Simplified `CustomACTPolicy` camera mapping to only the three canonical dataset sources: `left_camera`, `center_camera`, and `right_camera`.
+- Removed the code fallback checkpoint path from `CustomACTPolicy`; `CUSTOM_ACT_POLICY_PATH` is required unless a path is passed directly to the constructor.
+- Renamed VS Code task `Policy: start` to `Policy: start CustomACT` and hardcoded it to `aic_example_policies.ros.CustomACTPolicy`.
 
 ### Now
 - `CustomACTPolicy.py` is present in the working tree and should be treated as part of the active local policy package.
@@ -45,3 +49,8 @@ Success criteria: `CustomACTPolicy` imports, builds the 18D state from ROS obser
 - `rtk pixi run python -m py_compile aic_example_policies/aic_example_policies/ros/CustomACTPolicy.py` passed.
 - `rtk pixi run env PYTHONPATH=/home/mbed/Projects/aic/aic_example_policies python -c "import importlib; importlib.import_module('aic_example_policies.ros.CustomACTPolicy'); print('import ok')"` passed.
 - A no-simulator helper smoke test passed for SFP task one-hots, 18D state construction, quaternion/rot6d round-trip, 9D action-to-`Pose`, and Cartesian `MODE_POSITION` `MotionUpdate`.
+- `rtk rg -n "TODO\\(codex\\)|TODO" aic_example_policies/aic_example_policies/ros/CustomACTPolicy.py` returned no matches after resolving the TODOs.
+- `rtk jq empty .vscode/tasks.json` passed after adding `CUSTOM_ACT_POLICY_PATH` to `Policy: start`.
+- `rtk pixi run python -m py_compile aic_example_policies/aic_example_policies/ros/CustomACTPolicy.py`, module import, and image resolver smoke checks passed after removing camera aliases.
+- A no-env smoke check confirmed `_resolve_policy_path()` raises before loading when `CUSTOM_ACT_POLICY_PATH` is not set.
+- `rtk jq empty .vscode/tasks.json` passed after hardcoding `Policy: start CustomACT` and removing the `policyClass` input.
