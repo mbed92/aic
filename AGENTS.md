@@ -23,88 +23,14 @@ Default behavior:
 - make trade-offs explicit
 - optimize for solutions that can be shipped, operated, and debugged in the real world
 
-## Continuity
-
-Maintain a single continuity file:
-
-`CONTINUITY.md`
-
-The continuity ledger is the canonical long-term project memory.
-
-Before performing any non-trivial task:
-
-1. Read `CONTINUITY.md` if it exists.
-2. Review active decisions, current state, open questions, and constraints.
-3. Verify that they still match the current repository state.
-4. If repository artifacts and the ledger disagree, trust repository artifacts and update the ledger.
-
-Do not rely on previous conversation context unless it is reflected in the ledger.
-
-When creating `CONTINUITY.md`, use this structure:
-
-```markdown
-# CONTINUITY
-
-## Snapshot
-Goal: UNCONFIRMED
-Current state: UNCONFIRMED
-Next step: UNCONFIRMED
-Success criteria: UNCONFIRMED
-
-## Invariants
--
-
-## Decisions
--
-
-## State
-
-### Done (recent)
--
-
-### Now
--
-
-### Next
--
-
-## Open Questions
--
-
-## Working Set
--
-
-## Incidents
--
-
-## Receipts
--
-```
-
-Keep section names stable.
-
-Update `CONTINUITY.md` only when there is a meaningful change to:
-
-- goals
-- success criteria
-- constraints
-- decisions
-- project state
-- open questions
-- important discoveries
-- durable tool outcomes
-
-Keep the ledger concise. Prefer summaries, decisions, and references over detailed logs.
-
 ## Evidence Hierarchy
 
 When information conflicts, use the following priority:
 
 1. Repository state
 2. Tests and executable artifacts
-3. `CONTINUITY.md`
-4. Current user instructions
-5. Historical conversation context
+3. Current user instructions
+4. Historical conversation context
 
 Document important discrepancies. Do not propagate stale assumptions.
 
@@ -259,11 +185,8 @@ When uncertainty is high:
 
 When substantial work is completed:
 
-- update `CONTINUITY.md` if necessary
 - record durable decisions
 - record unresolved blockers
-- remove stale next steps
-- keep Snapshot consistent with reality
 - ensure local `AGENTS.md` still matches the repository
 
 ## Quality Bar
@@ -276,13 +199,10 @@ Before finalizing:
 - is the recommendation practical?
 - is the solution appropriately simple?
 - is it consistent with prior decisions?
-- does `CONTINUITY.md` require an update?
 
 ## User Responses
 
-Use `AGENTS.md` and `CONTINUITY.md` internally.
-
-Do not print ledger contents by default.
+Use `AGENTS.md` internally.
 
 Summarize project state only when:
 

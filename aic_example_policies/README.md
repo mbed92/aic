@@ -90,19 +90,19 @@ A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path i
 - `observation.images.{left,center,right}_camera`: wrist camera images
 - `action`: 9 values representing an absolute TCP pose target, `[x, y, z, rot6d_0..5]`
 
-The checkpoint path must be supplied through `CUSTOM_ACT_POLICY_PATH` or the
-`custom_act_policy_path` ROS parameter. The VS Code `Policy: start` task prompts
-for `CUSTOM_ACT_POLICY_PATH` and defaults it to:
+The checkpoint path must be supplied through `CUSTOM_ACT_POLICY_PATH`. The VS Code
+`Policy: start CustomACT` task prompts for this value and defaults the checkpoint path to:
 
 ```bash
-/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/checkpoints/last/pretrained_model
+/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act_aic_dagger_data_cheatcode_sc_138_v2/checkpoints/last/pretrained_model
 ```
+
+The checkpoint directory must contain `config.json`, `model.safetensors`,
+`policy_preprocessor.json`, and `policy_postprocessor.json`. The LeRobot
+processor pipelines load their referenced normalization state files from those
+JSON configs.
 
 **Run with a different checkpoint path:**
-```bash
-pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy -p custom_act_policy_path:=/path/to/pretrained_model
-```
-
 ```bash
 CUSTOM_ACT_POLICY_PATH=/path/to/pretrained_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
 ```

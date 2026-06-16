@@ -4,7 +4,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
-import cv2
 import draccus
 import numpy as np
 import torch
@@ -17,15 +16,23 @@ from aic_model.policy import (
 )
 from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.act.modeling_act import ACTPolicy
+from lerobot.processor.pipeline import (
+    DataProcessorPipeline,
+    PolicyProcessorPipeline,
+    batch_to_transition,
+    transition_to_batch,
+)
 from rclpy.node import Node
 from safetensors.torch import load_file
 
 from aic_model_interfaces.msg import Observation
 from aic_task_interfaces.msg import Task
 from geometry_msgs.msg import Point, Pose, Quaternion, Vector3, Wrench
+import torchvision.transforms.functional as TF
 
-
+# -------------------------------------------------------------------------
 # aic-dagger-data schema:
+# -------------------------------------------------------------------------
 #   observation.images.{left,center,right}_camera shape=[512, 576, 3]
 #   observation.state shape=[18]:
 #     tcp_pos_x, tcp_pos_y, tcp_pos_z,
@@ -35,8 +42,28 @@ from geometry_msgs.msg import Point, Pose, Quaternion, Vector3, Wrench
 #     port_0, port_1
 #   action shape=[9]:
 #     x, y, z, rot6d_0..5      (absolute TCP pose target)
+
+# Schema baked the task target into the state vector. We parse the
+# Task message (plug_type, target_module_name, port_name) to set the bits.
+
+# Rails 0..4 — extracted from "nic_card_mount_<i>" target_module_name.
 NUM_RAILS = 5
+# Ports 0..1 — extracted from "sfp_port_<i>" port_name.
 NUM_PORTS = 2
+
+# dataset image resolution (training native).
+IMG_H = 512
+IMG_W = 576
+
+# Control loop cadence — must match training (20 Hz)
+CONTROL_DT_S = 0.05
+
+# Impedance constants — verified to match CheatCode's MotionUpdate stream
+# during training (inspect_motion_updates.py). Hardcoded at deployment so the
+# learned pose targets execute under the same controller behavior they trained
+# against.
+STIFFNESS = [90.0, 90.0, 90.0, 50.0, 50.0, 50.0]
+DAMPING = [50.0, 50.0, 50.0, 20.0, 20.0, 20.0]
 
 
 def _quat_to_rotmat(qx: float, qy: float, qz: float, qw: float) -> np.ndarray:
@@ -159,29 +186,33 @@ def _task_to_one_hots(task: Task) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 class CustomACTPolicy(Policy):
     POLICY_PATH_ENV_VAR = "CUSTOM_ACT_POLICY_PATH"
-    POLICY_PATH_PARAMETER = "custom_act_policy_path"
-
-    _IMAGE_SOURCE_ATTRS = {
-        "left_camera": "left_image",
-        "center_camera": "center_image",
-        "right_camera": "right_image",
-    }
+    CONFIG_FILENAME = "config.json"
+    MODEL_WEIGHTS_FILENAME = "model.safetensors"
+    PREPROCESSOR_CONFIG_FILENAME = "policy_preprocessor.json"
+    POSTPROCESSOR_CONFIG_FILENAME = "policy_postprocessor.json"
+    IMAGE_FEATURES = (
+        "observation.images.left_camera",
+        "observation.images.center_camera",
+        "observation.images.right_camera",
+    )
 
     def __init__(self, parent_node: Node, policy_path: str | Path | None = None):
         self._parent_node = parent_node
         Policy.__init__(self, parent_node)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        resolved_policy_path = self._resolve_policy_path(parent_node, policy_path)
+
+        # -------------------------------------------------------------------------
+        # 1. Configuration & Weights Loading
+        # -------------------------------------------------------------------------
+        resolved_policy_path = self._resolve_policy_path(policy_path)
         self._load_local_policy(resolved_policy_path)
 
         self.get_logger().info(
             f"CustomACTPolicy loaded on {self.device} from {resolved_policy_path}"
         )
 
-    def _resolve_policy_path(
-        self, parent_node: Node, policy_path: str | Path | None
-    ) -> Path:
+    def _resolve_policy_path(self, policy_path: str | Path | None) -> Path:
         if policy_path is None:
             env_policy_path = os.environ.get(self.POLICY_PATH_ENV_VAR)
             if not env_policy_path:
@@ -190,149 +221,112 @@ class CustomACTPolicy(Policy):
                     "checkpoint directory. The VS Code 'Policy: start' task defines "
                     "this environment variable."
                 )
-            if not parent_node.has_parameter(self.POLICY_PATH_PARAMETER):
-                parent_node.declare_parameter(
-                    self.POLICY_PATH_PARAMETER, env_policy_path
-                )
-            policy_path = (
-                parent_node.get_parameter(self.POLICY_PATH_PARAMETER)
-                .get_parameter_value()
-                .string_value
-            )
+            policy_path = env_policy_path
 
         if not policy_path:
             raise RuntimeError(
-                f"{self.POLICY_PATH_PARAMETER} resolved to an empty checkpoint path."
+                f"{self.POLICY_PATH_ENV_VAR} resolved to an empty checkpoint path."
             )
 
         resolved_policy_path = Path(policy_path).expanduser()
         if not resolved_policy_path.exists():
-            raise FileNotFoundError(
+            raise RuntimeError(
                 f"ACT policy path does not exist: {resolved_policy_path}"
             )
         if not resolved_policy_path.is_dir():
-            raise NotADirectoryError(
+            raise RuntimeError(
                 f"ACT policy path must be a directory: {resolved_policy_path}"
             )
         return resolved_policy_path
 
-    @classmethod
-    def _image_attr_for_feature(cls, feature_name: str) -> str | None:
-        source_name = feature_name.split(".")[-1]
-        return cls._IMAGE_SOURCE_ATTRS.get(source_name)
-
     def _load_local_policy(self, policy_path: Path) -> None:
-        config_path = policy_path / "config.json"
-        model_weights_path = policy_path / "model.safetensors"
-        stats_path = (
-            policy_path / "policy_preprocessor_step_3_normalizer_processor.safetensors"
-        )
+        config_path = policy_path / self.CONFIG_FILENAME
+        model_weights_path = policy_path / self.MODEL_WEIGHTS_FILENAME
+        preprocessor_config_path = policy_path / self.PREPROCESSOR_CONFIG_FILENAME
+        postprocessor_config_path = policy_path / self.POSTPROCESSOR_CONFIG_FILENAME
 
-        for required_path in (config_path, model_weights_path, stats_path):
+        for required_path in (
+            config_path,
+            model_weights_path,
+            preprocessor_config_path,
+            postprocessor_config_path,
+        ):
             if not required_path.exists():
-                raise FileNotFoundError(f"Missing ACT checkpoint file: {required_path}")
+                raise RuntimeError(f"Missing ACT checkpoint file: {required_path}")
 
-        with open(config_path, "r") as f:
-            config_dict = json.load(f)
-        config_dict.pop("type", None)
+        try:
+            with open(config_path, "r") as f:
+                config_dict = json.load(f)
+            config_dict.pop("type", None)
 
-        config = draccus.decode(ACTConfig, config_dict)
-        if hasattr(config, "device"):
-            config.device = str(self.device)
+            config = draccus.decode(ACTConfig, config_dict)
+            if hasattr(config, "device"):
+                config.device = str(self.device)
 
-        self.policy = ACTPolicy(config)
-        self.policy.load_state_dict(load_file(model_weights_path))
-        self.policy.eval()
-        self.policy.to(self.device)
+            self.policy = ACTPolicy(config)
+            self.policy.load_state_dict(load_file(model_weights_path))
+            self.policy.eval()
+            self.policy.to(self.device)
 
-        stats = load_file(stats_path)
-        self._configure_inputs(config_dict, stats)
-
-        self.action_mean = self._get_stat(stats, "action.mean", (1, -1))
-        self.action_std = self._get_stat(stats, "action.std", (1, -1))
-        self.action_dim = int(self.action_mean.shape[1])
-        if self.action_dim != 9:
-            raise ValueError(
-                "CustomACTPolicy expects a bha-51 action shape of 9 "
-                f"[x, y, z, rot6d_0..5], got {self.action_dim}."
+            self._configure_inputs(config_dict)
+            device_override = {"device_processor": {"device": str(self.device)}}
+            self.preprocessor = DataProcessorPipeline.from_pretrained(
+                policy_path,
+                config_filename=self.PREPROCESSOR_CONFIG_FILENAME,
+                overrides=device_override,
             )
+            self.postprocessor = PolicyProcessorPipeline.from_pretrained(
+                policy_path,
+                config_filename=self.POSTPROCESSOR_CONFIG_FILENAME,
+                overrides=device_override,
+                to_transition=batch_to_transition,
+                to_output=transition_to_batch,
+            )
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load ACT checkpoint from {policy_path}: {exc}"
+            ) from exc
 
-    def _configure_inputs(self, config_dict: dict[str, Any], stats: dict[str, Any]):
+    def _configure_inputs(self, config_dict: dict[str, Any]) -> None:
         input_features = config_dict.get("input_features", {})
-        self.image_features: dict[str, dict[str, Any]] = {}
-        self.img_stats: dict[str, dict[str, torch.Tensor]] = {}
-        self.state_dim = 0
+        output_features = config_dict.get("output_features", {})
 
-        for feature_name, feature_cfg in input_features.items():
-            feature_type = feature_cfg.get("type")
-            shape = feature_cfg.get("shape", [])
-
-            if feature_type == "VISUAL":
-                image_attr = self._image_attr_for_feature(feature_name)
-                if image_attr is None:
-                    raise ValueError(
-                        f"Unsupported ACT image feature '{feature_name}'. "
-                        f"Expected one of {sorted(self._IMAGE_SOURCE_ATTRS)}."
-                    )
-                if len(shape) != 3:
-                    raise ValueError(
-                        f"Unsupported ACT image shape for '{feature_name}': {shape}"
-                    )
-                if shape[0] == 3:
-                    height = int(shape[1])
-                    width = int(shape[2])
-                elif shape[2] == 3:
-                    height = int(shape[0])
-                    width = int(shape[1])
-                else:
-                    raise ValueError(
-                        f"Unsupported ACT image shape for '{feature_name}': {shape}"
-                    )
-
-                self.image_features[feature_name] = {
-                    "image_attr": image_attr,
-                    "height": height,
-                    "width": width,
-                }
-                self.img_stats[feature_name] = {
-                    "mean": self._get_stat(stats, f"{feature_name}.mean", (1, 3, 1, 1)),
-                    "std": self._get_stat(stats, f"{feature_name}.std", (1, 3, 1, 1)),
-                }
-
-            elif feature_name == "observation.state":
-                if len(shape) != 1:
-                    raise ValueError(f"Unsupported ACT state shape: {shape}")
-                self.state_dim = int(shape[0])
-
-            elif feature_name == "observation.contact":
-                raise ValueError(
-                    "CustomACTPolicy now targets bha-51's schema and does not "
-                    "support observation.contact in the checkpoint input features."
-                )
-
-        if not self.image_features:
-            raise ValueError("ACT config does not define any visual input features.")
-        if self.state_dim != 18:
+        state_shape = input_features.get("observation.state", {}).get("shape")
+        if state_shape != [18]:
             raise ValueError(
                 "CustomACTPolicy expects a bha-51 observation.state shape of 18, "
-                f"got {self.state_dim}."
+                f"got {state_shape}."
             )
 
-        self.state_mean = self._get_stat(stats, "observation.state.mean", (1, -1))
-        self.state_std = self._get_stat(stats, "observation.state.std", (1, -1))
+        expected_image_features = set(self.IMAGE_FEATURES)
+        actual_image_features = {
+            feature_name
+            for feature_name in input_features
+            if feature_name.startswith("observation.images.")
+        }
+        if actual_image_features != expected_image_features:
+            raise ValueError(
+                "CustomACTPolicy expects exactly the bha-51 image features "
+                f"{sorted(expected_image_features)}, got {sorted(actual_image_features)}."
+            )
+
+        action_shape = output_features.get("action", {}).get("shape")
+        if action_shape != [9]:
+            raise ValueError(
+                "CustomACTPolicy expects a bha-51 action shape of 9 "
+                f"[x, y, z, rot6d_0..5], got {action_shape}."
+            )
+
+        self.state_dim = 18
+        self.action_dim = 9
 
         self.get_logger().info(
             "CustomACTPolicy input features: "
-            f"images={list(self.image_features.keys())}, "
-            f"state_dim={self.state_dim}"
+            f"images={list(self.IMAGE_FEATURES)}, state_dim={self.state_dim}, "
+            f"action_dim={self.action_dim}"
         )
-
-    def _get_stat(
-        self, stats: dict[str, Any], key: str, shape: tuple[int, ...]
-    ) -> torch.Tensor:
-        if key not in stats:
-            raise KeyError(f"Missing normalization statistic '{key}'")
-        return stats[key].to(self.device).view(*shape)
 
     @staticmethod
     def _img_to_tensor(
@@ -340,81 +334,20 @@ class CustomACTPolicy(Policy):
         device: torch.device,
         height: int,
         width: int,
-        mean: torch.Tensor,
-        std: torch.Tensor,
     ) -> torch.Tensor:
         img_np = np.frombuffer(raw_img.data, dtype=np.uint8).reshape(
             raw_img.height, raw_img.width, 3
         )
-        if img_np.shape[0] != height or img_np.shape[1] != width:
-            img_np = cv2.resize(img_np, (width, height), interpolation=cv2.INTER_AREA)
 
-        tensor = (
-            torch.from_numpy(img_np)
-            .permute(2, 0, 1)
-            .float()
-            .div(255.0)
-            .unsqueeze(0)
-            .to(device)
-        )
-        return (tensor - mean) / std
+        tensor = torch.from_numpy(img_np).permute(2, 0, 1).float().div(255.0).to(device)
+        return TF.resize(tensor, [height, width], antialias=True)
 
     def prepare_observations(
         self, obs_msg: Observation, task: Task = None
     ) -> Dict[str, torch.Tensor]:
-        obs = {}
-
-        # Convert each configured image feature from the observation message into a normalized tensor and add it to the obs dict.
-        for feature_name, feature_info in self.image_features.items():
-            obs[feature_name] = self._img_to_tensor(
-                getattr(obs_msg, feature_info["image_attr"]),
-                self.device,
-                feature_info["height"],
-                feature_info["width"],
-                self.img_stats[feature_name]["mean"],
-                self.img_stats[feature_name]["std"],
-            )
-
-        state_np = self._dataset_state_from_observation(obs_msg, task)
-        if state_np.shape[0] != self.state_dim:
-            raise ValueError(
-                f"ACT checkpoint expects state_dim={self.state_dim}, "
-                f"but CustomACTPolicy built {state_np.shape[0]} state values."
-            )
-
-        # Normalize the state vector and add it to the obs dict.
-        raw_state_tensor = (
-            torch.from_numpy(state_np)
-            .float()
-            .unsqueeze(0)
-            .to(self.device)
-        )
-        obs["observation.state"] = (raw_state_tensor - self.state_mean) / self.state_std
-
-        return obs
-
-    @staticmethod
-    def _dataset_state_from_observation(
-        obs_msg: Observation, task: Task = None
-    ) -> np.ndarray:
         tcp_pose = obs_msg.controller_state.tcp_pose
-        rot6d = _quat_to_rot6d(
-            tcp_pose.orientation.x,
-            tcp_pose.orientation.y,
-            tcp_pose.orientation.z,
-            tcp_pose.orientation.w,
-        )
-        cable, rail, port = (
-            _task_to_one_hots(task)
-            if task
-            else (
-                np.zeros(2, dtype=np.float32),
-                np.zeros(NUM_RAILS, dtype=np.float32),
-                np.zeros(NUM_PORTS, dtype=np.float32),
-            )
-        )
-
-        return np.concatenate(
+        cable, rail, port = _task_to_one_hots(task)
+        state_np = np.concatenate(
             [
                 np.array(
                     [
@@ -424,12 +357,31 @@ class CustomACTPolicy(Policy):
                     ],
                     dtype=np.float32,
                 ),
-                rot6d,
+                _quat_to_rot6d(
+                    tcp_pose.orientation.x,
+                    tcp_pose.orientation.y,
+                    tcp_pose.orientation.z,
+                    tcp_pose.orientation.w,
+                ),
                 cable,
                 rail,
                 port,
             ]
         )
+
+        obs = {
+            "observation.images.left_camera": self._img_to_tensor(
+                obs_msg.left_image, self.device, IMG_H, IMG_W
+            ),
+            "observation.images.center_camera": self._img_to_tensor(
+                obs_msg.center_image, self.device, IMG_H, IMG_W
+            ),
+            "observation.images.right_camera": self._img_to_tensor(
+                obs_msg.right_image, self.device, IMG_H, IMG_W
+            ),
+            "observation.state": torch.from_numpy(state_np).float().to(self.device),
+        }
+        return self.preprocessor(obs)
 
     def insert_cable(
         self,
@@ -443,35 +395,45 @@ class CustomACTPolicy(Policy):
         policy_name = type(self).__name__
         self.get_logger().info(f"{policy_name}.insert_cable() enter. Task: {task}")
 
-        start_time = time.time()
+        deadline = time.monotonic() + float(task.time_limit)
+        next_step = time.monotonic()
 
-        while time.time() - start_time < 30.0:
-            loop_start = time.time()
+        while time.monotonic() < deadline:
+            # 1. Get & Process Observation
             observation_msg = get_observation()
-
             if observation_msg is None:
-                self.get_logger().info("No observation received.")
+                self.sleep_for(CONTROL_DT_S)
                 continue
 
-            obs_tensors = self.prepare_observations(observation_msg, task)
+            batch = self.prepare_observations(observation_msg, task)
 
+            # 2. Model Inference
             with torch.inference_mode():
-                normalized_action = self.policy.select_action(obs_tensors)
+                # returns shape [1, action_dim] = [1, 9] (first action of chunk)
+                normalized_action = self.policy.select_action(batch)
 
-            raw_action_tensor = (normalized_action * self.action_std) + self.action_mean
-            action = raw_action_tensor[0].cpu().numpy()
-
+            # 3. Un-normalize Action
+            action_tensor = self.postprocessor({"action": normalized_action})["action"]
+            action = action_tensor.detach().cpu().float().numpy().flatten()
             self.get_logger().info(f"Action: {action}")
 
-            motion_update = self.set_cartesian_pose_target(
-                self._action_to_pose(action)
+            # 4. Send Robot Command
+            self.set_pose_target(
+                move_robot=move_robot,
+                pose=self._action_to_pose(action),
+                stiffness=STIFFNESS,
+                damping=DAMPING,
             )
-            move_robot(motion_update=motion_update)
+
             send_feedback("in progress...")
 
-            # Maintain control rate (approx 4Hz loop = 0.25s sleep)
-            elapsed = time.time() - loop_start
-            time.sleep(max(0, 0.25 - elapsed))
+            # 5. Sleep to maintain control loop cadence.
+            next_step += CONTROL_DT_S
+            sleep_for = next_step - time.monotonic()
+            if sleep_for > 0:
+                self.sleep_for(sleep_for)
+            else:
+                next_step = time.monotonic()
 
         self.get_logger().info(f"{policy_name}.insert_cable() exiting...")
         return True
@@ -479,7 +441,9 @@ class CustomACTPolicy(Policy):
     @staticmethod
     def _action_to_pose(action: np.ndarray) -> Pose:
         if action.shape[0] < 9:
-            raise ValueError(f"CustomACTPolicy expected 9-dim action, got {action.shape}")
+            raise ValueError(
+                f"CustomACTPolicy expected 9-dim action, got {action.shape}"
+            )
 
         qx, qy, qz, qw = _rot6d_to_quat(action[3:9])
         return Pose(
@@ -490,34 +454,3 @@ class CustomACTPolicy(Policy):
             ),
             orientation=Quaternion(x=qx, y=qy, z=qz, w=qw),
         )
-
-    def set_cartesian_pose_target(self, pose: Pose, frame_id: str = "base_link"):
-        motion_update_msg = MotionUpdate()
-        motion_update_msg.pose = pose
-        motion_update_msg.header.frame_id = frame_id
-        motion_update_msg.header.stamp = self.get_clock().now().to_msg()
-
-        motion_update_msg.target_stiffness = np.diag(
-            [100.0, 100.0, 100.0, 50.0, 50.0, 50.0]
-        ).flatten()
-        motion_update_msg.target_damping = np.diag(
-            [40.0, 40.0, 40.0, 15.0, 15.0, 15.0]
-        ).flatten()
-
-        motion_update_msg.feedforward_wrench_at_tip = Wrench(
-            force=Vector3(x=0.0, y=0.0, z=0.0), torque=Vector3(x=0.0, y=0.0, z=0.0)
-        )
-
-        motion_update_msg.wrench_feedback_gains_at_tip = [
-            0.5,
-            0.5,
-            0.5,
-            0.0,
-            0.0,
-            0.0,
-        ]
-        motion_update_msg.trajectory_generation_mode.mode = (
-            TrajectoryGenerationMode.MODE_POSITION
-        )
-
-        return motion_update_msg
