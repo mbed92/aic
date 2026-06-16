@@ -82,6 +82,34 @@ pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy
 
 ---
 
+### 4. CustomACTPolicy - Local ACT Checkpoint
+
+A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path instead of downloading the reference HuggingFace model. It expects ACT checkpoints trained on the `bha-51/aic-dagger-data` schema:
+
+- `observation.state`: 18 values with TCP position, TCP rotation in 6D representation, and task one-hots
+- `observation.images.{left,center,right}_camera`: wrist camera images
+- `action`: 9 values representing an absolute TCP pose target, `[x, y, z, rot6d_0..5]`
+
+By default it uses:
+
+```bash
+/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/checkpoints/last/pretrained_model
+```
+
+**Run the policy:**
+```bash
+pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
+```
+
+**Run with a different checkpoint path:**
+```bash
+pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy -p custom_act_policy_path:=/path/to/pretrained_model
+```
+
+**Source:** [`CustomACTPolicy.py`](./aic_example_policies/ros/CustomACTPolicy.py)
+
+---
+
 ## Scoring Examples
 
 For expected scoring results and reproducible test commands for each policy, see the [Scoring Test & Evaluation Guide](../../docs/scoring_tests.md).
