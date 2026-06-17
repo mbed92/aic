@@ -54,10 +54,10 @@ scripts = ["pixi_env_setup.sh"]
 description = "Download a Hugging Face dataset snapshot into a local directory."
 cmd = "python tools/download_hf_dataset.py"
 
-[tasks.test-lerobot-dataset-load]
-description = "Test loading the lerobot dataset using the script in tools/test_lerobot_dataset_load.py."
-cmd = "python tools/test_lerobot_dataset_load.py"
-
 [tasks.TrainCustomACT]
 description = "Train a CustomACTPolicy using the training script in tools/train_custom_act.py."
 cmd = "python tools/train_custom_act.py --use-amp"
+
+[tasks.TrainCustomACTMulti]
+description = "Train CustomACT with the same wrapper defaults as TrainCustomACT over local multi-dataset roots."
+cmd = "LEROBOT_MULTI_ROOTS=/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_138_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_372_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_493_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_85_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_483_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_753_cheatcode:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_300_finealign_v3:/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_iter3_finealign python tools/train_custom_act.py --use-amp --train-command 'python tools/lerobot_train_v051.py' --dataset-root /media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_138_cheatcode --job-name act_multi_lerobot_v051"

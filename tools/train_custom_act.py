@@ -16,7 +16,7 @@ DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
 DEFAULT_DATASET_ROOT = "/media/mbed/T7/datasets/aic/aic-dagger-data"
 DEFAULT_HF_HOME = "/media/mbed/T7/hf_cache"
 DEFAULT_RUN_NAME = "act_aic_dagger_data"
-DEFAULT_OUTPUT_DIR = f"/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/{DEFAULT_RUN_NAME}"
+DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/{DEFAULT_RUN_NAME}"
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
@@ -122,13 +122,18 @@ def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, 
         action="store_true",
         help="Set --policy.use_amp=true. Default is false.",
     )
+    parser.add_argument(
+        "--train-command",
+        default="lerobot-train",
+        help="Training command to invoke. Default: lerobot-train",
+    )
 
     return parser.parse_known_args(argv)
 
 
 def _build_command(args: argparse.Namespace, extra_args: Sequence[str]) -> list[str]:
     command = [
-        "lerobot-train",
+        *shlex.split(args.train_command),
         f"--policy.type=act",
         f"--dataset.repo_id={args.repo_id}",
         f"--dataset.root={Path(args.dataset_root).expanduser()}",

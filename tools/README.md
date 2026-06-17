@@ -102,3 +102,25 @@ pixi run TrainCustomACT --policy.optimizer_lr=1e-4
 
 If the output directory already contains a previous run, choose a new
 `--output-dir` or pass `--resume=true` through to `lerobot-train`.
+
+## Train ACT on Multiple Local Datasets
+
+Run the local LeRobot v0.5.1 training script with `LEROBOT_MULTI_ROOTS` set to
+the configured AIC dataset folders. This task uses the same
+`tools/train_custom_act.py` wrapper defaults as `TrainCustomACT`, but swaps the
+underlying training command to `tools/lerobot_train_v051.py`:
+
+```bash
+pixi run TrainCustomACTMulti
+```
+
+The task reads from these local dataset roots without physically merging them:
+
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_138_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_372_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_493_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_85_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_483_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_753_cheatcode`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_300_finealign_v3`
+- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_iter3_finealign`

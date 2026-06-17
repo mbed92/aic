@@ -18,10 +18,13 @@
 # - added support for handling multiple datasets at once by env, e.g. LEROBOT_MULTI_ROOTS="/path/to/dataset1:/path/to/dataset2"
 
 
+import copy
 import dataclasses
 import logging
+import os
 import time
 from contextlib import nullcontext
+from pathlib import Path
 from pprint import pformat
 from typing import Any
 
@@ -33,8 +36,12 @@ from tqdm import tqdm
 
 from lerobot.configs import parser
 from lerobot.configs.train import TrainPipelineConfig
-from lerobot.datasets.factory import make_dataset
+from lerobot.datasets.compute_stats import aggregate_stats
+from lerobot.datasets.dataset_metadata import LeRobotDatasetMetadata
+from lerobot.datasets.factory import IMAGENET_STATS, make_dataset, resolve_delta_timestamps
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.datasets.sampler import EpisodeAwareSampler
+from lerobot.datasets.transforms import ImageTransforms
 from lerobot.datasets.utils import cycle
 from lerobot.envs.factory import make_env, make_env_pre_post_processors
 from lerobot.envs.utils import close_envs
@@ -59,6 +66,134 @@ from lerobot.utils.utils import (
     init_logging,
     inside_slurm,
 )
+
+
+LEROBOT_MULTI_ROOTS_ENV = "LEROBOT_MULTI_ROOTS"
+
+
+def is_multi_dataset_mode() -> bool:
+    return bool(os.environ.get(LEROBOT_MULTI_ROOTS_ENV, "").strip())
+
+
+def _parse_multi_roots_from_env() -> list[Path]:
+    roots_env = os.environ.get(LEROBOT_MULTI_ROOTS_ENV, "")
+    roots = [Path(root.strip()).expanduser() for root in roots_env.split(":") if root.strip()]
+    if not roots:
+        raise ValueError(f"{LEROBOT_MULTI_ROOTS_ENV} is set but does not contain any dataset roots.")
+
+    for root in roots:
+        if not root.exists():
+            raise FileNotFoundError(f"Dataset root from {LEROBOT_MULTI_ROOTS_ENV} does not exist: {root}")
+        if not root.is_dir():
+            raise NotADirectoryError(f"Dataset root from {LEROBOT_MULTI_ROOTS_ENV} is not a directory: {root}")
+
+    return roots
+
+
+class MultiLeRobotDataset(torch.utils.data.Dataset):
+    """Minimal concatenation wrapper around local LeRobotDataset instances."""
+
+    def __init__(self, datasets: list[LeRobotDataset]):
+        super().__init__()
+        if not datasets:
+            raise ValueError("MultiLeRobotDataset requires at least one child dataset.")
+
+        for dataset in datasets:
+            for attr in ("meta", "num_frames", "num_episodes"):
+                if not hasattr(dataset, attr):
+                    raise TypeError(f"Child dataset {dataset!r} does not expose required attribute {attr!r}.")
+
+        self.datasets = datasets
+        self.meta = copy.copy(datasets[0].meta)
+        self.meta.stats = aggregate_stats([dataset.meta.stats for dataset in datasets])
+        self._cumulative_frames = []
+        total = 0
+        for dataset in datasets:
+            total += dataset.num_frames
+            self._cumulative_frames.append(total)
+
+    @property
+    def num_frames(self) -> int:
+        return self._cumulative_frames[-1]
+
+    @property
+    def num_episodes(self) -> int:
+        return sum(dataset.num_episodes for dataset in self.datasets)
+
+    def __len__(self) -> int:
+        return self.num_frames
+
+    def __getitem__(self, idx: int) -> dict:
+        if isinstance(idx, torch.Tensor):
+            idx = idx.item()
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
+            raise IndexError(f"Index {idx} out of bounds for dataset of length {len(self)}.")
+
+        start_idx = 0
+        for dataset, end_idx in zip(self.datasets, self._cumulative_frames, strict=True):
+            if idx < end_idx:
+                return dataset[idx - start_idx]
+            start_idx = end_idx
+
+        raise AssertionError("Index bounds were checked, so a child dataset should have been selected.")
+
+
+def make_multi_lerobot_dataset_from_env(cfg: TrainPipelineConfig) -> MultiLeRobotDataset:
+    if cfg.dataset.streaming:
+        raise ValueError(f"{LEROBOT_MULTI_ROOTS_ENV} multi-dataset mode does not support streaming datasets.")
+
+    roots = _parse_multi_roots_from_env()
+    image_transforms = (
+        ImageTransforms(cfg.dataset.image_transforms) if cfg.dataset.image_transforms.enable else None
+    )
+
+    reference_meta = LeRobotDatasetMetadata(
+        cfg.dataset.repo_id, root=roots[0], revision=cfg.dataset.revision
+    )
+    delta_timestamps = resolve_delta_timestamps(cfg.policy, reference_meta)
+
+    datasets = []
+    logging.info("Creating multi-dataset from %s roots", len(roots))
+    for root in roots:
+        dataset = LeRobotDataset(
+            cfg.dataset.repo_id,
+            root=root,
+            episodes=cfg.dataset.episodes,
+            delta_timestamps=delta_timestamps,
+            image_transforms=image_transforms,
+            revision=cfg.dataset.revision,
+            video_backend=cfg.dataset.video_backend,
+            tolerance_s=cfg.tolerance_s,
+        )
+        logging.info(
+            "Loaded child dataset root=%s num_frames=%s num_episodes=%s",
+            dataset.root,
+            dataset.num_frames,
+            dataset.num_episodes,
+        )
+        datasets.append(dataset)
+
+    multi_dataset = MultiLeRobotDataset(datasets)
+    if cfg.dataset.use_imagenet_stats:
+        for key in multi_dataset.meta.camera_keys:
+            for stats_type, stats in IMAGENET_STATS.items():
+                multi_dataset.meta.stats[key][stats_type] = torch.tensor(stats, dtype=torch.float32)
+
+    logging.info(
+        "Loaded multi-dataset num_frames=%s num_episodes=%s canonical_root=%s",
+        multi_dataset.num_frames,
+        multi_dataset.num_episodes,
+        multi_dataset.meta.root,
+    )
+    return multi_dataset
+
+
+def make_train_dataset(cfg: TrainPipelineConfig) -> torch.utils.data.Dataset:
+    if is_multi_dataset_mode():
+        return make_multi_lerobot_dataset_from_env(cfg)
+    return make_dataset(cfg)
 
 
 def update_policy(
@@ -224,13 +359,13 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
     # Dataset loading synchronization: main process downloads first to avoid race conditions
     if is_main_process:
         logging.info("Creating dataset")
-        dataset = make_dataset(cfg)
+        dataset = make_train_dataset(cfg)
 
     accelerator.wait_for_everyone()
 
     # Now all other processes can safely load the dataset
     if not is_main_process:
-        dataset = make_dataset(cfg)
+        dataset = make_train_dataset(cfg)
 
     # Create environment used for evaluating checkpoints during training on simulation data.
     # On real-world data, no need to create an environment as evaluations are done outside train.py,
@@ -360,7 +495,10 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         logging.info(f"{num_total_params=} ({format_big_number(num_total_params)})")
 
     # create dataloader for offline training
-    if hasattr(cfg.policy, "drop_n_last_frames"):
+    if is_multi_dataset_mode():
+        shuffle = True
+        sampler = None
+    elif hasattr(cfg.policy, "drop_n_last_frames"):
         shuffle = False
         sampler = EpisodeAwareSampler(
             dataset.meta.episodes["dataset_from_index"],
