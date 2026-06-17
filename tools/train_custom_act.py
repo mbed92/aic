@@ -13,8 +13,8 @@ from typing import Sequence
 
 
 DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
-DEFAULT_DATASET_ROOT = "/media/mbed/T7/datasets/aic/aic-dagger-data"
-DEFAULT_HF_HOME = "/media/mbed/T7/hf_cache"
+DEFAULT_DATASET_ROOT = "/home/mbed/aic-dagger-data"
+DEFAULT_HF_HOME = "/home/mbed/hf_cache"
 DEFAULT_RUN_NAME = "act_aic_dagger_data"
 DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/{DEFAULT_RUN_NAME}"
 
@@ -127,6 +127,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, 
         default="lerobot-train",
         help="Training command to invoke. Default: lerobot-train",
     )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        help="Number of data loader workers. Default: 4",
+    )
 
     return parser.parse_known_args(argv)
 
@@ -139,6 +145,7 @@ def _build_command(args: argparse.Namespace, extra_args: Sequence[str]) -> list[
         f"--dataset.root={Path(args.dataset_root).expanduser()}",
         f"--output_dir={Path(args.output_dir).expanduser()}",
         f"--job_name={args.job_name}",
+        f"--num_workers={args.num_workers}",
         f"--batch_size={args.batch_size}",
         f"--steps={args.steps}",
         f"--save_freq={args.save_freq}",
