@@ -21,3 +21,5 @@ aic_utils/aic_isaac/aic_isaaclab/source/aic_task/aic_task/tasks/manager_based/ai
 
 # Ignore trained model checkpoints and logs
 outputs
+logs
+aic-dagger-data-outputs
