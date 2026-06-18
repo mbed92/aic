@@ -76,7 +76,7 @@ Defaults:
 - dataset root: `/media/mbed/T7/datasets/aic/aic-dagger-data`
 - output dir: `/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data`
 - log file: `/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data.log`
-- training: `--policy.type=act`, `--batch_size=4`, `--steps=80000`, `--save_freq=5000`, `--log_freq=100`, `--policy.chunk_size=10`, `--policy.n_action_steps=10`
+- training: `--policy.type=act`, `--batch_size=2`, `--steps=80000`, `--save_freq=5000`, `--log_freq=100`, `--policy.chunk_size=10`, `--policy.n_action_steps=10`
 - disabled by default: Hub push and WandB
 
 Override common training inputs:
@@ -113,6 +113,14 @@ underlying training command to `tools/lerobot_train_v051.py`:
 ```bash
 pixi run TrainCustomACTMulti
 ```
+
+For a workstation-safe background run, use `tools/start_training_helper.sh`.
+It starts `TrainCustomACTMulti` inside a systemd scope with `MemoryMax=20G` and
+`MemorySwapMax=8G`, and passes defensive training settings:
+
+- `--batch-size 2`
+- `--num-workers 1`
+- `--save-freq 10000`
 
 The task reads from these local dataset roots without physically merging them:
 
