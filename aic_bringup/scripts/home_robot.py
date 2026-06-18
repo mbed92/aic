@@ -106,12 +106,10 @@ class HomeTrajectoryNode(Node):
             msg.header.frame_id = "base_link"
             msg.pose = Pose(
                 position=Point(x=-0.4, y=0.2, z=0.3),
-                orientation=Quaternion(x=-0.707, y=-0.707, z=0.0, w=0.0),
+                orientation=Quaternion(x=-1.0, y=0.0, z=0.0, w=0.0),
             )
-            msg.target_stiffness = np.diag(
-                [100.0, 100.0, 100.0, 50.0, 50.0, 50.0]
-            ).flatten()
-            msg.target_damping = np.diag([40.0, 40.0, 40.0, 15.0, 15.0, 15.0]).flatten()
+            msg.target_stiffness = np.diag([90.0, 90.0, 90.0, 50.0, 50.0, 50.0]).flatten()
+            msg.target_damping = np.diag([50.0, 50.0, 50.0, 20.0, 20.0, 20.0]).flatten()
             msg.wrench_feedback_gains_at_tip = [0.5, 0.5, 0.5, 0.0, 0.0, 0.0]
             msg.trajectory_generation_mode.mode = TrajectoryGenerationMode.MODE_POSITION
             self.publisher.publish(msg)

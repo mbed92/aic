@@ -156,7 +156,7 @@
         {
             "label": "Spawn Board: Trial 1 (NIC rail 0)",
             "type": "shell",
-            "command": "distrobox enter -r aic_eval -- bash -c 'source /opt/ros/kilted/setup.bash && source /ws_aic/install/setup.bash && ros2 launch aic_bringup spawn_task_board.launch.py task_board_x:=0.15 task_board_y:=-0.2 task_board_z:=1.14 task_board_yaw:=3.1415 nic_card_mount_0_present:=true nic_card_mount_0_translation:=0.036 sc_port_0_present:=true sc_port_0_translation:=0.042 sc_port_0_yaw:=0.1 lc_mount_rail_0_present:=true lc_mount_rail_0_translation:=0.02 sfp_mount_rail_0_present:=true sfp_mount_rail_0_translation:=0.03 sc_mount_rail_0_present:=true sc_mount_rail_0_translation:=-0.02 lc_mount_rail_1_present:=true lc_mount_rail_1_translation:=-0.01'",
+            "command": "distrobox enter -r aic_eval -- bash -c 'source /opt/ros/kilted/setup.bash && source /ws_aic/install/setup.bash && ros2 launch aic_bringup spawn_task_board.launch.py task_board_x:=0.15 task_board_y:=0.2 task_board_z:=1.14 task_board_yaw:=3.1415 nic_card_mount_0_present:=true nic_card_mount_0_translation:=0.036 sc_port_0_present:=true sc_port_0_translation:=0.042 sc_port_0_yaw:=0.1 lc_mount_rail_0_present:=true lc_mount_rail_0_translation:=0.02 sfp_mount_rail_0_present:=true sfp_mount_rail_0_translation:=0.03 sc_mount_rail_0_present:=true sc_mount_rail_0_translation:=-0.02 lc_mount_rail_1_present:=true lc_mount_rail_1_translation:=-0.01'",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
@@ -213,7 +213,7 @@
         {
             "label": "Update Pixi",
             "type": "shell",
-            "command": "pixi install && pixi reinstall ros-kilted-aic-example-policies",
+            "command": "pixi install && pixi reinstall ros-kilted-aic-example-policies ros-kilted-aic-bringup",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -331,7 +331,7 @@
             "id": "customActPolicyPath",
             "type": "promptString",
             "description": "CustomACTPolicy checkpoint directory",
-            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act_aic_dagger_data_cheatcode_sc_138_v2/checkpoints/last/pretrained_model"
+            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/checkpoints/last/pretrained_model"
         },
         {
             "id": "taskId",
