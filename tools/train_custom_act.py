@@ -133,6 +133,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, 
         default=4,
         help="Number of data loader workers. Default: 4",
     )
+    parser.add_argument(
+        "--temporal-ensemble-coeff",
+        type=float,
+        default=None,
+        help="Set --policy.temporal_ensemble_coeff. Default is None.",
+    )
 
     return parser.parse_known_args(argv)
 
@@ -158,9 +164,10 @@ def _build_command(args: argparse.Namespace, extra_args: Sequence[str]) -> list[
 
     if args.chunk_size is not None:
         command.append(f"--policy.chunk_size={args.chunk_size}")
-
     if args.n_action_steps is not None:
         command.append(f"--policy.n_action_steps={args.n_action_steps}")
+    if args.temporal_ensemble_coeff is not None:
+        command.append(f"--policy.temporal_ensemble_coeff={args.temporal_ensemble_coeff}")
 
     command.extend(extra_args)
     return command
