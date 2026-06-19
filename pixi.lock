@@ -8010,6 +8010,7 @@ packages:
   - ros-kilted-sensor-msgs
   - ros-kilted-std-srvs
   - ros-kilted-trajectory-msgs
+  - ros-kilted-visualization-msgs
   - ros2-distro-mutex
   - ros2-distro-mutex >=0.15.0,<0.16.0a0
   - libcxx >=22
@@ -8036,6 +8037,7 @@ packages:
   - ros-kilted-sensor-msgs
   - ros-kilted-std-srvs
   - ros-kilted-trajectory-msgs
+  - ros-kilted-visualization-msgs
   - ros2-distro-mutex
   - ros2-distro-mutex >=0.15.0,<0.16.0a0
   - libgcc >=15

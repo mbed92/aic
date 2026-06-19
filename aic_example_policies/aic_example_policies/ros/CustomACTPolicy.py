@@ -25,6 +25,7 @@ from lerobot.processor.pipeline import (
 from rclpy.node import Node
 from safetensors.torch import load_file
 from scipy.spatial.transform import Rotation
+from visualization_msgs.msg import Marker
 
 from aic_model_interfaces.msg import Observation
 from aic_task_interfaces.msg import Task
@@ -196,6 +197,62 @@ def _action_to_pose(action: np.ndarray) -> Pose:
         ),
         orientation=Quaternion(x=qx, y=qy, z=qz, w=qw),
     )
+
+
+def _make_action_marker(
+    marker_id: int,
+    marker_type: int,
+    stamp,
+    lifetime_sec: int = 1,
+) -> Marker:
+    marker = Marker()
+    marker.header.frame_id = "base_link"
+    marker.header.stamp = stamp
+    marker.ns = "custom_act_action"
+    marker.id = marker_id
+    marker.type = marker_type
+    marker.action = Marker.ADD
+    marker.pose.orientation.w = 1.0
+    marker.lifetime.sec = lifetime_sec
+    return marker
+
+
+def _publish_action_marker(
+    marker_pub,
+    stamp,
+    current_pose: Pose,
+    target_pose: Pose,
+) -> None:
+    line_marker = _make_action_marker(0, Marker.LINE_STRIP, stamp)
+    line_marker.scale.x = 0.004
+    line_marker.color.r = 0.1
+    line_marker.color.g = 0.8
+    line_marker.color.b = 1.0
+    line_marker.color.a = 0.9
+    line_marker.points = [
+        current_pose.position,
+        target_pose.position,
+    ]
+
+    target_marker = _make_action_marker(1, Marker.SPHERE, stamp)
+    target_marker.pose.position = target_pose.position
+    target_marker.scale = Vector3(x=0.025, y=0.025, z=0.025)
+    target_marker.color.r = 0.0
+    target_marker.color.g = 1.0
+    target_marker.color.b = 0.25
+    target_marker.color.a = 0.95
+
+    orientation_marker = _make_action_marker(2, Marker.ARROW, stamp)
+    orientation_marker.pose = target_pose
+    orientation_marker.scale = Vector3(x=0.06, y=0.01, z=0.018)
+    orientation_marker.color.r = 1.0
+    orientation_marker.color.g = 0.55
+    orientation_marker.color.b = 0.0
+    orientation_marker.color.a = 0.95
+
+    marker_pub.publish(line_marker)
+    marker_pub.publish(target_marker)
+    marker_pub.publish(orientation_marker)
 
 
 class WrenchMotionScaler:
@@ -390,9 +447,15 @@ class CustomACTPolicy(Policy):
         resolved_policy_path = self._resolve_policy_path(policy_path)
         self._load_local_policy(resolved_policy_path)
         self.motion_scaler = WrenchMotionScaler(logger=self.get_logger())
+        self.action_chunk_marker_pub = self._parent_node.create_publisher(
+            Marker, "/custom_act/action_chunk", 1
+        )
 
         self.get_logger().info(
             f"CustomACTPolicy loaded on {self.device} from {resolved_policy_path}"
+        )
+        self.get_logger().info(
+            "CustomACTPolicy sends pose targets with wrench feedback disabled."
         )
 
     def _resolve_policy_path(self, policy_path: str | Path | None) -> Path:
@@ -552,6 +615,39 @@ class CustomACTPolicy(Policy):
         }
         return obs
 
+    def _set_pose_target_without_wrench_feedback(
+        self,
+        move_robot: MoveRobotCallback,
+        pose: Pose,
+        frame_id: str = "base_link",
+    ) -> None:
+        motion_update = MotionUpdate()
+        motion_update.header.frame_id = frame_id
+        motion_update.header.stamp = self.get_clock().now().to_msg()
+        motion_update.pose = pose
+        motion_update.target_stiffness = np.diag(STIFFNESS).flatten()
+        motion_update.target_damping = np.diag(DAMPING).flatten()
+        motion_update.feedforward_wrench_at_tip = Wrench(
+            force=Vector3(x=0.0, y=0.0, z=0.0),
+            torque=Vector3(x=0.0, y=0.0, z=0.0),
+        )
+        motion_update.wrench_feedback_gains_at_tip = [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ]
+        motion_update.trajectory_generation_mode.mode = (
+            TrajectoryGenerationMode.MODE_POSITION
+        )
+
+        try:
+            move_robot(motion_update=motion_update)
+        except Exception as ex:
+            self.get_logger().info(f"move_robot exception: {ex}")
+
     def insert_cable(
         self,
         task: Task,
@@ -589,18 +685,22 @@ class CustomACTPolicy(Policy):
 
             # 4. Send Robot Command
             target_pose = _action_to_pose(action)
-            scaled_pose = self.motion_scaler.scale_target_pose(
-                target_pose,
+            _publish_action_marker(
+                self.action_chunk_marker_pub,
+                self.get_clock().now().to_msg(),
                 observation_msg.controller_state.tcp_pose,
-                observation_msg,
+                target_pose,
             )
-            self.get_logger().info(f"Scaled target pose: {scaled_pose}")
+            # scaled_pose = self.motion_scaler.scale_target_pose(
+            #     target_pose,
+            #     observation_msg.controller_state.tcp_pose,
+            #     observation_msg,
+            # )
+            # self.get_logger().info(f"Scaled target pose: {scaled_pose}")
 
-            self.set_pose_target(
+            self._set_pose_target_without_wrench_feedback(
                 move_robot=move_robot,
-                pose=scaled_pose,
-                stiffness=STIFFNESS,
-                damping=DAMPING,
+                pose=target_pose,
             )
 
             send_feedback("in progress...")

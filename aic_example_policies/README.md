@@ -107,6 +107,10 @@ JSON configs.
 CUSTOM_ACT_POLICY_PATH=/path/to/pretrained_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
 ```
 
+The policy publishes RViz markers for the latest commanded action on
+`/custom_act/action_chunk`. The markers show the current-to-target TCP segment,
+the target TCP position, and the target TCP orientation in `base_link`.
+
 **Source:** [`CustomACTPolicy.py`](./aic_example_policies/ros/CustomACTPolicy.py)
 
 ---

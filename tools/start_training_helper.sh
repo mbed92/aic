@@ -21,6 +21,9 @@ nohup flock -n /tmp/train_custom_act_multi.lock \
           HF_HOME=/media/mbed/T7/hf_cache \
           CUDA_VISIBLE_DEVICES=0 \
           pixi run TrainCustomACTMulti \
+              --steps 50000 \
+              --chunk-size 100 \
+              --n-action-steps 10 \
               --batch-size 2 \
               --save-freq 10000 \
               --num-workers 1 \
