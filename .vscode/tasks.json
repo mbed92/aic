@@ -331,7 +331,7 @@
             "id": "customActPolicyPath",
             "type": "promptString",
             "description": "CustomACTPolicy checkpoint directory",
-            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act_aic_dagger_data/checkpoints/last/pretrained_model"
+            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/20260619_105152/checkpoints/last/pretrained_model"
         },
         {
             "id": "taskId",

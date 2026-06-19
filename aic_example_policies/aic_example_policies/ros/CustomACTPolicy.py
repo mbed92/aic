@@ -681,7 +681,7 @@ class CustomACTPolicy(Policy):
             # 3. Un-normalize Action
             action_tensor = self.postprocessor({"action": normalized_action})["action"]
             action = action_tensor.detach().cpu().float().numpy().flatten()
-            self.get_logger().info(f"Raw action: {action}")
+            self.get_logger().info(f"{policy_name} action: {np.round(action, 4).tolist()}")
 
             # 4. Send Robot Command
             target_pose = _action_to_pose(action)

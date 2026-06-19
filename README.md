@@ -54,6 +54,7 @@ Recent participant reports point to a practical AIC lesson: the hard part was no
 - Check for causal confusion: if the policy behaves similarly with cameras occluded, it is likely following joint-state or trajectory shortcuts.
 - Prefer scene diversity over raw episode count; varied 500-episode data can beat a narrow 2000-episode set.
 - Treat insertion as feedback-critical: for ACT, smaller chunks (`25-50`) and more observation steps (`3-5`) are worth testing.
+- Separate smoothness from accuracy: in local ACT experiments, `action_size = 1` with `temporal_ensembling = 0.01` made TCP motion much smoother, but still did not reliably hit the port. Treat this as evidence that temporal smoothing can stabilize execution while leaving target localization, final alignment, or insertion-phase feedback unsolved.
 - Do not trust cheatcode data alone; homogeneous demonstrations can make shortcut learning worse.
 - Verify state contracts first, especially ROS joint order, LeRobot dataset order, normalization, and `task_index` conditioning.
 - Compare ACT against Diffusion Policy on the same dataset before assuming ACT is the right architecture.
