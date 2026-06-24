@@ -16,7 +16,7 @@ DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
 DEFAULT_DATASET_ROOT = "/home/mbed/aic-dagger-data"
 DEFAULT_HF_HOME = "/home/mbed/hf_cache"
 DEFAULT_RUN_NAME = "act_aic_dagger_data"
-DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/{DEFAULT_RUN_NAME}"
+DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/act/{DEFAULT_RUN_NAME}"
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, list[str]]:

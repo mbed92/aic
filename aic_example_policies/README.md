@@ -82,7 +82,7 @@ pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy
 
 ---
 
-### 4. CustomACTPolicy - Local ACT Checkpoint
+### 4. ACTTrainedPolicy - Local ACT Checkpoint
 
 A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path instead of downloading the reference HuggingFace model. It expects ACT checkpoints trained on the `bha-51/aic-dagger-data` schema:
 
@@ -90,11 +90,11 @@ A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path i
 - `observation.images.{left,center,right}_camera`: wrist camera images
 - `action`: 9 values representing an absolute TCP pose target, `[x, y, z, rot6d_0..5]`
 
-The checkpoint path must be supplied through `CUSTOM_ACT_POLICY_PATH`. The VS Code
-`Policy: start CustomACT` task prompts for this value and defaults the checkpoint path to:
+The checkpoint path must be supplied through `ACT_TRAINED_POLICY_PATH`. The VS Code
+`Policy: start ACTTrainedPolicy` task prompts for this value and defaults the checkpoint path to:
 
 ```bash
-/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act_aic_dagger_data_cheatcode_sc_138_v2/checkpoints/last/pretrained_model
+/home/mbed/Projects/aic/aic-dagger-data-outputs/act/train/20260619_105152/checkpoints/last/pretrained_model
 ```
 
 The checkpoint directory must contain `config.json`, `model.safetensors`,
@@ -104,14 +104,25 @@ JSON configs.
 
 **Run with a different checkpoint path:**
 ```bash
-CUSTOM_ACT_POLICY_PATH=/path/to/pretrained_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.CustomACTPolicy
+ACT_TRAINED_POLICY_PATH=/path/to/pretrained_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.ACTTrainedPolicy
 ```
 
 The policy publishes RViz markers for the latest commanded action on
-`/custom_act/action_chunk`. The markers show the current-to-target TCP segment,
+`/trained_policy/action_chunk`. The markers show the current-to-target TCP segment,
 the target TCP position, and the target TCP orientation in `base_link`.
 
-**Source:** [`CustomACTPolicy.py`](./aic_example_policies/ros/CustomACTPolicy.py)
+**Source:** [`ACTTrainedPolicy.py`](./aic_example_policies/ros/ACTTrainedPolicy.py), with the implementation in [`implementations/act.py`](./aic_example_policies/ros/implementations/act.py)
+
+### 5. SmolVLATrainedPolicy - Template Placeholder
+
+`SmolVLATrainedPolicy` is a non-functional template for future SmolVLA work. It imports as a policy entrypoint and has VS Code and Pixi task placeholders, but it raises clear `NotImplementedError` exceptions before issuing robot commands.
+
+**Run the placeholder:**
+```bash
+SMOLVLA_TRAINED_POLICY_PATH=/path/to/future_model pixi run ros2 run aic_model aic_model --ros-args -p use_sim_time:=true -p policy:=aic_example_policies.ros.SmolVLATrainedPolicy
+```
+
+**Source:** [`SmolVLATrainedPolicy.py`](./aic_example_policies/ros/SmolVLATrainedPolicy.py), with the template implementation in [`implementations/smolvla.py`](./aic_example_policies/ros/implementations/smolvla.py)
 
 ---
 

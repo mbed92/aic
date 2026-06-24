@@ -245,7 +245,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /custom_act/action_chunk
+        Value: /trained_policy/action_chunk
       Value: true
   Enabled: true
   Global Options:
