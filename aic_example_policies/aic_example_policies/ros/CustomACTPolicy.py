@@ -1,12 +1,14 @@
 import json
 import os
 import time
-from pathlib import Path
-from typing import Any, Dict
-
+import torchvision.transforms.functional as TF
 import draccus
 import numpy as np
 import torch
+
+from pathlib import Path
+from typing import Any
+
 from aic_control_interfaces.msg import MotionUpdate, TrajectoryGenerationMode
 from aic_model.policy import (
     GetObservationCallback,
@@ -26,11 +28,9 @@ from rclpy.node import Node
 from safetensors.torch import load_file
 from scipy.spatial.transform import Rotation
 from visualization_msgs.msg import Marker
-
 from aic_model_interfaces.msg import Observation
 from aic_task_interfaces.msg import Task
 from geometry_msgs.msg import Point, Pose, Quaternion, Vector3, Wrench
-import torchvision.transforms.functional as TF
 
 # -------------------------------------------------------------------------
 # aic-dagger-data schema:
@@ -66,14 +66,6 @@ CONTROL_DT_S = 0.05
 # against.
 STIFFNESS = [90.0, 90.0, 90.0, 50.0, 50.0, 50.0]
 DAMPING = [50.0, 50.0, 50.0, 20.0, 20.0, 20.0]
-
-# Wrench-based motion scaling constants. The scoring force penalty starts at
-# 20 N; torque limits are local safety parameters, not competition thresholds.
-FORCE_FREE_N = 10.0
-FORCE_LIMIT_N = 20.0
-TORQUE_FREE_NM = 0.5
-TORQUE_LIMIT_NM = 1.5
-INSERTION_AXIS_SIGN = 1.0
 
 
 def _quat_to_rot6d(qx: float, qy: float, qz: float, qw: float) -> np.ndarray:
@@ -137,37 +129,6 @@ def _task_to_one_hots(task: Task) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             pass
 
     return cable, rail, port
-
-
-def _pose_position(pose: Pose) -> np.ndarray:
-    return np.array([pose.position.x, pose.position.y, pose.position.z], dtype=np.float64)
-
-
-def _pose_rotation(pose: Pose) -> np.ndarray:
-    return Rotation.from_quat(
-        [
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w,
-        ]
-    ).as_matrix()
-
-
-def _increases_load(delta_component: float, wrench_component: float) -> bool:
-    return (
-        abs(delta_component) > 1e-9
-        and delta_component * wrench_component > 0.0
-    )
-
-
-def _smooth_scale(value: float, free_value: float, limit_value: float) -> float:
-    if value <= free_value:
-        return 1.0
-    if value >= limit_value:
-        return 0.0
-    ratio = (value - free_value) / (limit_value - free_value)
-    return float(1.0 - ratio)
 
 
 def _img_to_tensor(
@@ -255,174 +216,6 @@ def _publish_action_marker(
     marker_pub.publish(orientation_marker)
 
 
-class WrenchMotionScaler:
-    """Scale ACT pose targets using tared force/torque feedback.
-
-    The scaler treats the ACT output as an absolute target pose, converts it
-    into a local TCP-frame translation/rotation delta from the current pose,
-    then attenuates only the delta components that would increase the measured
-    wrench load. Components below the free thresholds pass unchanged, while
-    components at or above the limit thresholds are stopped.
-
-    Assumptions:
-    - force and torque are already expressed in the same TCP-local axes as the
-      computed pose delta;
-    - matching signs of motion delta and wrench component mean the commanded
-      motion would push further into the load;
-    - local TCP z is the insertion axis, and x/y torque magnitude represents
-      bending load during insertion.
-    """
-
-    def __init__(
-        self,
-        force_free_n: float = FORCE_FREE_N,
-        force_limit_n: float = FORCE_LIMIT_N,
-        torque_free_nm: float = TORQUE_FREE_NM,
-        torque_limit_nm: float = TORQUE_LIMIT_NM,
-        insertion_axis_sign: float = INSERTION_AXIS_SIGN,
-        logger=None,
-    ):
-        self.force_free_n = force_free_n
-        self.force_limit_n = force_limit_n
-        self.torque_free_nm = torque_free_nm
-        self.torque_limit_nm = torque_limit_nm
-        self.insertion_axis_sign = 1.0 if insertion_axis_sign >= 0.0 else -1.0
-        self.logger = logger
-        self._last_log_time = 0.0
-
-    def scale_target_pose(
-        self,
-        target_pose: Pose,
-        current_pose: Pose,
-        observation_msg: Observation,
-    ) -> Pose:
-        force, torque = self._tared_wrench(observation_msg)
-        if not np.all(np.isfinite(force)) or not np.all(np.isfinite(torque)):
-            self._log_throttled("Invalid wrench reading; leaving ACT target unscaled.")
-            return target_pose
-
-        current_rot = _pose_rotation(current_pose)
-        target_rot = _pose_rotation(target_pose)
-
-        current_position = _pose_position(current_pose)
-        target_position = _pose_position(target_pose)
-
-        delta_base = target_position - current_position
-        delta_tcp = current_rot.T @ delta_base
-
-        delta_rot_tcp = current_rot.T @ target_rot
-        rotvec_tcp = Rotation.from_matrix(delta_rot_tcp).as_rotvec()
-
-        scaled_delta_tcp, translation_scales = self._scale_translation(
-            delta_tcp, force, torque
-        )
-        scaled_rotvec_tcp, rotation_scales = self._scale_rotation(rotvec_tcp, torque)
-
-        scaled_position = current_position + current_rot @ scaled_delta_tcp
-        scaled_rotation = current_rot @ Rotation.from_rotvec(
-            scaled_rotvec_tcp
-        ).as_matrix()
-        qx, qy, qz, qw = Rotation.from_matrix(scaled_rotation).as_quat()
-
-        self._log_throttled(
-            "WrenchMotionScaler "
-            f"|F|={np.linalg.norm(force):.2f}N |T|={np.linalg.norm(torque):.2f}Nm "
-            f"trans_scale={np.round(translation_scales, 2).tolist()} "
-            f"rot_scale={np.round(rotation_scales, 2).tolist()}"
-        )
-
-        return Pose(
-            position=Point(
-                x=float(scaled_position[0]),
-                y=float(scaled_position[1]),
-                z=float(scaled_position[2]),
-            ),
-            orientation=Quaternion(x=qx, y=qy, z=qz, w=qw),
-        )
-
-    def _tared_wrench(
-        self, observation_msg: Observation
-    ) -> tuple[np.ndarray, np.ndarray]:
-        wrench = observation_msg.wrist_wrench.wrench
-        tare = observation_msg.controller_state.fts_tare_offset.wrench
-        force = np.array(
-            [
-                wrench.force.x - tare.force.x,
-                wrench.force.y - tare.force.y,
-                wrench.force.z - tare.force.z,
-            ],
-            dtype=np.float64,
-        )
-        torque = np.array(
-            [
-                wrench.torque.x - tare.torque.x,
-                wrench.torque.y - tare.torque.y,
-                wrench.torque.z - tare.torque.z,
-            ],
-            dtype=np.float64,
-        )
-        return force, torque
-
-    def _scale_translation(
-        self, delta_tcp: np.ndarray, force: np.ndarray, torque: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Scale local TCP translation deltas that increase force load.
-
-        Each axis is scaled independently from 1.0 to 0.0 between the configured
-        force free/limit thresholds, but only when the requested delta has the
-        same sign as the measured force on that axis. Forward insertion along
-        local TCP z is additionally limited by x/y bending torque.
-        """
-        scaled = delta_tcp.copy()
-        scales = np.ones(3, dtype=np.float64)
-
-        for axis in range(3):
-            if _increases_load(delta_tcp[axis], force[axis]):
-                scales[axis] = _smooth_scale(
-                    abs(force[axis]), self.force_free_n, self.force_limit_n
-                )
-
-        insertion_axis = 2
-        if self.insertion_axis_sign * delta_tcp[insertion_axis] > 0.0:
-            bending_torque = float(np.linalg.norm(torque[:2]))
-            insertion_scale = _smooth_scale(
-                bending_torque, self.torque_free_nm, self.torque_limit_nm
-            )
-            scales[insertion_axis] = min(scales[insertion_axis], insertion_scale)
-
-        scaled *= scales
-        return scaled, scales
-
-    def _scale_rotation(
-        self, rotvec_tcp: np.ndarray, torque: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Scale local TCP rotation deltas that increase torque load.
-
-        The rotation vector is treated component-wise in TCP-local axes. A
-        component is attenuated only when its sign matches the measured torque
-        sign on the same axis, using the configured torque free/limit thresholds.
-        """
-        scaled = rotvec_tcp.copy()
-        scales = np.ones(3, dtype=np.float64)
-
-        for axis in range(3):
-            if _increases_load(rotvec_tcp[axis], torque[axis]):
-                scales[axis] = _smooth_scale(
-                    abs(torque[axis]), self.torque_free_nm, self.torque_limit_nm
-                )
-
-        scaled *= scales
-        return scaled, scales
-
-    def _log_throttled(self, message: str, period_s: float = 1.0) -> None:
-        if self.logger is None:
-            return
-        now = time.monotonic()
-        if now - self._last_log_time >= period_s:
-            self.logger.info(message)
-            self._last_log_time = now
-
-
 class CustomACTPolicy(Policy):
     POLICY_PATH_ENV_VAR = "CUSTOM_ACT_POLICY_PATH"
     CONFIG_FILENAME = "config.json"
@@ -446,7 +239,7 @@ class CustomACTPolicy(Policy):
         # -------------------------------------------------------------------------
         resolved_policy_path = self._resolve_policy_path(policy_path)
         self._load_local_policy(resolved_policy_path)
-        self.motion_scaler = WrenchMotionScaler(logger=self.get_logger())
+
         self.action_chunk_marker_pub = self._parent_node.create_publisher(
             Marker, "/custom_act/action_chunk", 1
         )
@@ -681,7 +474,9 @@ class CustomACTPolicy(Policy):
             # 3. Un-normalize Action
             action_tensor = self.postprocessor({"action": normalized_action})["action"]
             action = action_tensor.detach().cpu().float().numpy().flatten()
-            self.get_logger().info(f"{policy_name} action: {np.round(action, 4).tolist()}")
+            self.get_logger().info(
+                f"{policy_name} action: {np.round(action, 4).tolist()}"
+            )
 
             # 4. Send Robot Command
             target_pose = _action_to_pose(action)
@@ -691,12 +486,6 @@ class CustomACTPolicy(Policy):
                 observation_msg.controller_state.tcp_pose,
                 target_pose,
             )
-            # scaled_pose = self.motion_scaler.scale_target_pose(
-            #     target_pose,
-            #     observation_msg.controller_state.tcp_pose,
-            #     observation_msg,
-            # )
-            # self.get_logger().info(f"Scaled target pose: {scaled_pose}")
 
             self._set_pose_target_without_wrench_feedback(
                 move_robot=move_robot,
