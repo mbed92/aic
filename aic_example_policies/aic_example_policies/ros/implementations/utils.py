@@ -66,6 +66,11 @@ def task_to_one_hots(task: Task) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         except ValueError:
             pass
 
+    # SC datasets encode the target module in rail and its single port as port_0.
+    if plug_type == "sc" and target_module_name in ("sc_port_0", "sc_port_1"):
+        rail[int(target_module_name[-1])] = 1.0
+        port[0] = 1.0
+
     return cable, rail, port
 
 
@@ -154,4 +159,3 @@ def publish_action_marker(
     marker_pub.publish(line_marker)
     marker_pub.publish(target_marker)
     marker_pub.publish(orientation_marker)
-

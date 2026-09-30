@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIC — objaśnienie niezacommitowanych zmian</title>
+<style>
+:root{--ink:#203340;--muted:#526573;--paper:#f5f7f8;--line:#d4dfe3;--accent:#086b72;--soft:#e9f5f3;--warn:#fff3da}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.7 system-ui,sans-serif}main{max-width:1050px;margin:auto;padding:38px 26px 80px}header{padding:30px;border-top:6px solid var(--accent);background:white;border-radius:8px}h1{font-size:clamp(1.9rem,4vw,3rem);line-height:1.15;margin:14px 0 22px}h2{font-size:1.65rem;line-height:1.3;margin-top:0}h3{font-size:1.2rem;margin-top:30px}p{margin:12px 0}a{color:var(--accent);text-underline-offset:3px}section{margin-top:32px;background:white;border:1px solid var(--line);border-radius:10px;padding:30px;scroll-margin-top:20px}.kicker{font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}.meta{font-size:.87rem;color:var(--muted);overflow-wrap:anywhere}nav ol{display:flex;flex-wrap:wrap;gap:10px 30px;padding-left:24px}nav{padding:18px 12px}.callout{padding:16px 20px;border-left:4px solid var(--accent);background:var(--soft);margin:22px 0}.risk{background:var(--warn);border-color:#b77808}.flow{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;margin:24px 0}.box{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:17px;background:#f4f8fa}.box strong{display:block;color:var(--accent)}.arrow{align-self:center;font-size:25px;color:var(--muted)}.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.pair .box{min-width:0}.chip{display:inline-block;font: .85rem/1.5 ui-monospace,monospace;background:white;border:1px solid var(--line);padding:3px 7px;border-radius:5px;margin-top:10px}code{font: .87em/1.6 ui-monospace,monospace;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:auto;background:#152c36;color:#e2f4f5;padding:20px;border-radius:8px;font: .86rem/1.65 ui-monospace,monospace}pre code{font:inherit}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.92rem;margin:20px 0}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#edf3f5}li{margin:7px 0}.question{border:1px solid var(--line);padding:22px;border-radius:8px;margin:22px 0}.question h3{margin:0 0 15px}.options{display:grid;gap:9px}button{font:inherit;font-size:.95rem;text-align:left;border:1px solid #a9bdc5;background:#f8fafb;color:var(--ink);padding:12px 16px;border-radius:6px;cursor:pointer}button:hover:not(:disabled){border-color:var(--accent);background:var(--soft)}button:focus-visible{outline:3px solid #008d95;outline-offset:3px}button:disabled{cursor:default;opacity:.75}button.correct{background:#daf1e6;border-color:#21844d;opacity:1}button.incorrect{background:#fde6e0;border-color:#b84c36;opacity:1}.feedback{margin-bottom:0;min-height:1.7em;font-weight:500}.inventory{columns:2;font-size:.85rem;overflow-wrap:anywhere}.inventory li{break-inside:avoid}footer{margin-top:30px;color:var(--muted);font-size:.85rem}@media(max-width:650px){main{padding:18px 12px 40px}header,section{padding:20px}.pair{grid-template-columns:1fr}.flow{flex-direction:column}.arrow{transform:rotate(90deg)}.inventory{columns:1}th,td{padding:9px}}@media print{body{background:white}main{max-width:none}section{break-inside:auto}button{color:black}.question{break-inside:avoid}}
+</style>
+</head>
+<body><main>
+<header><div class="kicker">AIC · przegląd techniczny · 30 września 2026</div>
+<h1>Od konfiguracji treningu<br>do poprawnego celu SC</h1>
+<p>Niezacommitowane zmiany porządkują lokalne ścieżki i uruchamianie eksperymentów, włączają rzeczywistą obsługę AMP w lokalnym trenerze, zmieniają domyślne ładowanie wag SmolVLA oraz naprawiają kodowanie celu SC. Nowe testy zabezpieczają zgodność wejść polityki z ustalonym schematem treningowym.</p>
+<p class="meta">Baza: HEAD <code>ef619cc1f8726c58754f7634d681098f33179411</code>, gałąź <code>devel</code>. Zakres: 16 zmodyfikowanych plików śledzonych + 1 nowy plik testów. Odczyt: <code>git diff HEAD</code> i pliki nieśledzone. Ten HTML nie należy do objaśnianego zestawu.</p>
+</header>
+<nav aria-label="Spis treści"><ol><li><a href="#background">Kontekst / Background</a></li><li><a href="#intuition">Intuicja / Intuition</a></li><li><a href="#code">Kod / Code</a></li><li><a href="#validation">Testy i granice</a></li><li><a href="#quiz">Quiz</a></li><li><a href="#sources">Źródła i zakres</a></li></ol></nav>
+<section id="background"><h2>Background — jak działa ten fragment systemu?</h2>
+<h3>Beginner Background — podstawy</h3>
+<p><strong>Polityka</strong> przekształca obserwację robota w działanie. Podczas treningu uczy się na zapisanych demonstracjach; podczas inferencji dostaje bieżący obraz, stan TCP i opis zadania. <strong>Checkpoint</strong> zapisuje wytrenowane parametry i konfigurację potrzebną do ich użycia. Poprawność wymiarów wejścia jest konieczna, ale równie ważne jest znaczenie każdej pozycji w wektorze.</p>
+<p><strong>One-hot</strong> oznacza wektor, w którym jedna pozycja ma wartość 1, a pozostałe 0. Przykładowo <code>[0,1,0,0,0]</code> wybiera drugi indeks. Nazwy pól w istniejącym zbiorze są częścią kontraktu: dla SC pola <code>rail</code> kodują indeks modułu celu, nawet jeśli intuicyjnie oczekiwalibyśmy tej informacji w polu <code>port</code>.</p>
+<p><strong>VLM</strong> to model przetwarzający obraz i język, używany przez SmolVLA jako podstawa reprezentacji. Zamrożenie jego parametrów oznacza, że trening ich nie aktualizuje. Dlatego trzeba odróżnić zamrożony model z wytrenowanymi wagami od zamrożonego modelu z losową inicjalizacją. <strong>AMP</strong> pozwala wykonywać część obliczeń z mniejszą precyzją; samo przekazanie flagi do parsera nie uruchamia tego mechanizmu w pętli treningowej.</p>
+<h3>Local Background — granice odpowiedzialności</h3>
+<div class="flow" aria-label="Przepływ uruchomienia treningu"><div class="box"><strong>Skrypt Bash</strong>Blokada, systemd, cache, logi</div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>Zadanie Pixi</strong>Lista datasetów i wybór wrappera</div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>Wrapper Python</strong>Argumenty użytkownika → konfiguracja LeRobot</div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>Trener + Accelerate</strong>Model, dane, obliczenia, checkpoint</div></div>
+<p><code>tools/start_act_training.sh</code> uruchamia alias <code>TrainCustomACTMulti</code>, który prowadzi do <code>TrainACTTrainedPolicyMulti</code>. Zadania wielu datasetów używają lokalnego <code>tools/lerobot_train_v051.py</code>. Zwykłe <code>TrainACTTrainedPolicy</code> nadal korzysta z polecenia bibliotecznego <code>lerobot-train</code>; poprawka inicjalizacji Accelerate dotyczy lokalnego trenera.</p>
+<div class="flow" aria-label="Przepływ inferencji"><div class="box"><strong>Task + Observation</strong>Cel, kamery, pozycja TCP</div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>task_to_one_hots</strong>9 cech zadania<span class="chip">cable[2] + rail[5] + port[2]</span></div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>TrainedPolicy</strong>18 cech stanu + obrazy → ACT → docelowa poza TCP</div></div>
+<div class="callout"><strong>Granica zakresu:</strong> mechanizm treningu SmolVLA istnieje, ale ROS-owa <code>SmolVLATrainedPolicy</code> pozostaje szablonem zgłaszającym <code>NotImplementedError</code>. Usunięcie pustej linii w tym pliku nie implementuje inferencji.</div>
+</section>
+<section id="intuition"><h2>Intuition — co ma przestać się rozjeżdżać?</h2>
+<p>Wspólna idea tych zmian to doprowadzenie konfiguracji do miejsca, w którym faktycznie wpływa ona na zachowanie. Lokalizacja datasetu musi wskazywać te same dane w downloaderze i wrapperze. Flaga AMP musi dotrzeć do Accelerate. Nazwa celu SC musi zostać zamieniona na taki sam wektor, jaki widział model podczas treningu.</p>
+<h3>Przykład: ta sama obserwacja, dwa różne cele</h3>
+<div class="pair"><div class="box"><strong>Przed zmianą</strong><p>Dla SC funkcja rozpoznawała kabel, lecz parsery nazw rail i port obsługiwały wyłącznie nazwy SFP.</p><code>sc_port_0 → rail=[0,0,0,0,0], port=[0,0]<br>sc_port_1 → rail=[0,0,0,0,0], port=[0,0]</code></div><div class="box"><strong>Po zmianie</strong><p>Cel SC wskazuje osobny moduł z jednym portem. Pola zachowują znaczenie zgodne z danymi.</p><code>sc_port_0 → rail=[1,0,0,0,0], port=[1,0]<br>sc_port_1 → rail=[0,1,0,0,0], port=[1,0]</code></div></div>
+<p>Oba przypadki nadal mają 18 cech: 3 współrzędne TCP, 6 wartości rotacji i 9 cech zadania. Nie zmienia się architektura checkpointu ani liczba wejść. Zmienia się informacja o celu, którą rzeczywiście otrzymuje model. SFP zachowuje dotychczasowe kodowanie.</p>
+<h3>Przykład: zamrożenie ma sens dopiero po inicjalizacji</h3>
+<div class="pair"><div class="box"><strong>Przed: domyślne false</strong><p>Konfiguracja VLM → losowe wagi → zamrożenie → trening eksperta na niewytrenowanych reprezentacjach.</p></div><div class="box"><strong>Po: domyślne true</strong><p>Wytrenowane wagi VLM → zamrożenie → trening eksperta korzystającego z istniejących reprezentacji.</p></div></div>
+<p>To usuwa problem inicjalizacji, lecz nie stanowi dowodu poprawy skuteczności wkładania kabli. Jakość modelu nadal wymaga eksperymentu. Podobnie FP16 jest ustawieniem obliczeń, a nie obietnicą konkretnego przyspieszenia lub braku OOM.</p>
+</section>
+<section id="code"><h2>Code — przegląd według odpowiedzialności</h2>
+<h3>1. Wejście polityki: zgodność SC z datasetem</h3>
+<p><code>aic_example_policies/…/ros/implementations/utils.py::task_to_one_hots</code> dodaje szczególny przypadek dla dwóch znanych modułów SC. Dotychczasowe rozpoznawanie nazw SFP pozostaje bez zmian.</p>
+<pre><code>if plug_type == "sc" and target_module_name in ("sc_port_0", "sc_port_1"):
+    rail[int(target_module_name[-1])] = 1.0
+    port[0] = 1.0</code></pre>
+<p>Indeks pochodzi z <code>target_module_name</code>, nie z <code>port_name</code>. W konfiguracji ewaluacji SC nazwa portu to <code>sc_port_base</code>. Nowy warunek nie rozszerza obsługi na dowolne nazwy SC, LC ani inne schematy. Nieznane nazwy nadal nie mają nowej walidacji.</p>
+<p><strong>Dowód i założenie:</strong> odczytane wcześniej statystyki lokalnych datasetów SC pokazały stałe <code>port=[1,0]</code> i zmienność pierwszych dwóch pól rail. Użytkownik potwierdził dokładne przypisanie <code>sc_port_0 → rail_0</code> i <code>sc_port_1 → rail_1</code>. Nie jest to mapowanie wywnioskowane wyłącznie z nazw.</p>
+<h3>2. Inicjalizacja SmolVLA: zmiana domyślnej wartości CLI</h3>
+<p><code>tools/train_smolvla.py::_parse_args</code> używa teraz pary flag generowanej przez <code>BooleanOptionalAction</code>. Komenda z dawną flagą dodatnią nadal działa.</p>
+<pre><code>parser.add_argument(
+    "--load-vlm-weights",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    ...
+)</code></pre>
+<div class="table-wrap"><table><thead><tr><th>Wywołanie wrappera</th><th>Argument dla LeRobot</th></tr></thead><tbody><tr><td>Bez flagi</td><td><code>--policy.load_vlm_weights=true</code></td></tr><tr><td><code>--load-vlm-weights</code></td><td><code>--policy.load_vlm_weights=true</code></td></tr><tr><td><code>--no-load-vlm-weights</code></td><td><code>--policy.load_vlm_weights=false</code></td></tr></tbody></table></div>
+<p>Lokalne źródła LeRobot potwierdzają, że <code>true</code> wybiera <code>from_pretrained</code>, a <code>false</code> tworzy model na podstawie konfiguracji. Przy treningu od zera README zaleca dodatkowo <code>--policy.train_expert_only=false</code> oraz <code>--policy.freeze_vision_encoder=false</code>. Wrapper nie ustawia tych dwóch opcji automatycznie.</p>
+<h3>3. Precyzja obliczeń: flaga trafia do Accelerate</h3>
+<p><code>tools/lerobot_train_v051.py::train</code> przy tworzeniu własnego obiektu <code>Accelerator</code> przekazuje:</p>
+<pre><code>mixed_precision=(
+    "fp16" if cfg.policy.use_amp and str(cfg.policy.device).startswith("cuda") else "no"
+)</code></pre>
+<p>Dotyczy to zarówno <code>cuda</code>, jak i <code>cuda:0</code>. Dla CPU, MPS lub wyłączonej flagi wybierane jest <code>no</code>. Jawny argument ustala precyzję zamiast polegać na domyślnym ustawieniu środowiska. Jeżeli wywołujący dostarczy już obiekt <code>accelerator</code>, ten blok nie zostanie wykonany i jego konfiguracja pozostaje odpowiedzialnością wywołującego.</p>
+<div class="callout risk"><strong>Granica walidacji:</strong> sprawdzono wybór wartości konfiguracji, nie wykonanie kroku optymalizatora na GPU. Stabilność numeryczna FP16, zgodność dtype modelu i zużycie VRAM wymagają krótkiego treningu.</div>
+<h3>4. Uruchamianie eksperymentów: wspólny lock i sesja użytkownika</h3>
+<p>Oba skrypty startowe przechodzą z blokady zawierającej identyfikator uruchomienia na <code>/tmp/train.lock</code>. Różne identyfikatory tworzyły różne pliki blokady, więc nie chroniły przed równoległym uruchomieniem dwóch różnych runów. Wspólny plik pozwala wykluczać się ACT i SmolVLA, jeżeli są uruchamiane przez te skrypty i korzystają z tego samego pliku.</p>
+<div class="flow"><div class="box"><strong>ACT lub SmolVLA</strong><code>flock -n /tmp/train.lock</code></div><div class="arrow" aria-hidden="true">→</div><div class="box"><strong>Blokada wolna</strong>Start procesu w scope użytkownika</div><div class="arrow" aria-hidden="true">↔</div><div class="box"><strong>Blokada zajęta</strong>Brak oczekiwania; polecenie treningu nie startuje</div></div>
+<p><code>systemd-run --scope --user</code> kieruje wykonanie do menedżera systemd użytkownika. Limity <code>MemoryMax=20G</code> i <code>MemorySwapMax=8G</code> pozostają bez zmian. Dotyczą pamięci hosta, nie VRAM. Nowy wspólny lock nie obejmuje bezpośredniego <code>pixi run</code> z pominięciem skryptów.</p>
+<p>Oba skrypty włączają <code>HF_HUB_OFFLINE=1</code>. Brak wymaganych plików w cache oznacza błąd, nie automatyczne pobranie. Usunięcie <code>HF_HUB_DISABLE_XET=1</code> z Bash nie oznacza, że Xet zostaje włączony: wrappery nadal domyślnie ustawiają tę zmienną.</p>
+<div class="table-wrap"><table><thead><tr><th>Skrypt ACT</th><th>HEAD</th><th>Katalog roboczy</th></tr></thead><tbody><tr><td>Batch</td><td>2</td><td>16</td></tr><tr><td>Workery</td><td>1</td><td>4</td></tr><tr><td>Zapis checkpointu</td><td>co 10000 kroków</td><td>co 5000 kroków</td></tr><tr><td>AMP w skrypcie</td><td>brak jawnej flagi</td><td><code>--use-amp</code></td></tr><tr><td>Argument katalogu wyjściowego</td><td><code>--output_dir</code></td><td><code>--output-dir</code></td></tr></tbody></table></div>
+<p>Ostatnia korekta jest istotna dla wrappera: wariant z myślnikiem trafia do jego parsera i ustala również powiązaną ścieżkę logu. Wariant z podkreśleniem był nieznanym argumentem przekazywanym dalej do LeRobot, przy zachowaniu domyślnego katalogu w logice wrappera. Jawne <code>--use-amp</code> w skrypcie ACT powtarza flagę już obecną w zadaniu Pixi; dopiero zmiana lokalnego trenera zapewnia jej połączenie z Accelerate.</p>
+<div class="callout risk"><strong>Konsekwencje operacyjne:</strong> większy batch i więcej workerów mogą zwiększyć zużycie pamięci. Częstsze checkpointy zwiększają obciążenie I/O i zajętość dysku. Menedżer systemd użytkownika musi być dostępny. Zapis pliku PID procesu uruchomionego w tle nie dowodzi, że lock został zdobyty ani że model zaczął trening — sprawdź log.</div>
+<h3>5. Ścieżki, dokumentacja i drobne porządki</h3>
+<p>Oba wrappery zmieniają <code>~/dataset/aic-dagger-data</code> na <code>~/datasets/aic-dagger-data</code>. Zadania multi w <code>pixi.toml</code> zastępują ścieżki konkretnego użytkownika ścieżkami pod <code>~/datasets</code>. Lista siedmiu nazw datasetów pozostaje taka sama; zmiana nie tworzy ani nie pobiera żadnego katalogu. Parser <code>LEROBOT_MULTI_ROOTS</code> rozdziela listę dwukropkami i wywołuje <code>expanduser()</code> dla każdego elementu.</p>
+<p>W <code>.vscode/tasks.json</code> zmieniają się domyślne podpowiedzi checkpointów na <code>~/aic/…</code>. Kod ładowania ścieżki ACT już obsługuje <code>expanduser()</code>. To usuwa nazwę konkretnego użytkownika, ale nadal zakłada checkout w <code>~/aic</code> i istnienie wybranego checkpointu. Podpowiedzi nie wyszukują najnowszego runu.</p>
+<p>README polityk opisuje kodowanie SC i uzgadnia ścieżkę ACT z VS Code. README narzędzi poprawia opis katalogu pobierania, ścieżki danych i parametry ACT, usuwa opis nieistniejącego zadania testowania datasetu oraz wyjaśnia AMP i cache SmolVLA. <code>AGENTS.md</code> zastępuje ścieżkę instrukcji RTK wariantem <code>~/.codex/RTK.md</code>. W sześciu plikach polityk usuwane są nadmiarowe puste linie końcowe; poza zmianą funkcji SC nie wpływa to na zachowanie.</p>
+</section>
+<section id="validation"><h2>Testy, dowody i granice</h2>
+<p>Nowy <code>aic_example_policies/test/test_task_encoding.py</code> zawiera dwa testy unittest. Pierwszy obejmuje dwa cele SC, drugi dziesięć kombinacji pięciu raili i dwóch portów SFP. Porównywane są wszystkie trzy wektory, nie tylko ich długości. Testy ponownie uruchomiono podczas przygotowania dokumentu.</p>
+<pre><code>PYTHONPATH=aic_example_policies .pixi/envs/default/bin/python \
+  -m unittest discover -s aic_example_policies/test -v</code></pre>
+<div class="table-wrap"><table><thead><tr><th>Dowód</th><th>Wynik / zakres</th></tr></thead><tbody><tr><td>Testy SC i SFP</td><td>2 testy, 12 kombinacji. Wynik: OK.</td></tr><tr><td>Weryfikacja podczas implementacji</td><td>Komendy wrapperów: domyślne ścieżki oraz trzy warianty flagi wag SmolVLA. Wszystkie asercje przeszły.</td></tr><tr><td>Wybór AMP podczas implementacji</td><td>Sześć konfiguracji urządzenia i flagi sprawdzonych przez ewaluację wyrażenia z kodu. Nie był to test treningu ani GPU.</td></tr><tr><td>Walidacja statyczna podczas implementacji</td><td>Python AST, TOML, JSON, Bash i git diff --check: bez błędów po poprawkach.</td></tr><tr><td>Niesprawdzone end-to-end</td><td>Pobranie lub kompletność wag, start systemd, pełne wykonanie zadań Pixi, krok treningu, inferencja i skuteczność w symulacji.</td></tr></tbody></table></div>
+<p><strong>Ograniczenie testów:</strong> testy one-hot nie dowodzą poprawności całego preprocessingu obrazów, normalizacji checkpointu ani działania robota. Dokładne mapowanie SC jest uzgodnionym kontraktem; dla danych o innym kodowaniu należałoby ponownie potwierdzić zgodność.</p>
+<p><strong>Przed pełnym uruchomieniem:</strong> sprawdź obecność wszystkich siedmiu skonfigurowanych datasetów i wymaganych plików modelu w cache, następnie wykonaj krótki trening z małą liczbą kroków. To proponowany dalszy etap walidacji, którego tutaj nie wykonano. Dokument nie potwierdza gotowości środowiska do długiego treningu.</p>
+</section>
+<section id="quiz"><h2>Quiz — sprawdź rozumienie zmiany</h2><p>Wybierz jedną odpowiedź w każdym pytaniu. Każdy wybór otrzyma natychmiastowe wyjaśnienie; po odpowiedzi pytanie zostanie zamknięte.</p><noscript>Quiz wymaga włączonego JavaScript. Całe objaśnienie powyżej jest dostępne bez niego.</noscript>
+<div class="question"><h3>1. Dlaczego indeks celu SC zapisujemy w rail, a nie jako drugi port?</h3><div class="options">
+<button type="button" data-correct="false" data-feedback="Liczba wartości się nie zmienia: rail ma 5 pól, port ma 2. Chodzi o znaczenie zgodne z danymi, nie o kompresję.">Żeby zmniejszyć wymiar stanu modelu.</button>
+<button type="button" data-correct="true" data-feedback="Tak. Potwierdzony schemat koduje indeks modułu SC w rail; każdy z tych modułów ma kod port=[1,0].">Tak koduje cele istniejący schemat treningowy.</button>
+<button type="button" data-correct="false" data-feedback="ROS przekazuje nazwę modułu i portu. To lokalna funkcja Python buduje wektory według schematu datasetu.">ROS automatycznie narzuca taki układ wektorów.</button>
+</div><p class="feedback" aria-live="polite"></p></div>
+<div class="question"><h3>2. Co jest potrzebne, aby jawnie trenować VLM od zera?</h3><div class="options">
+<button type="button" data-correct="false" data-feedback="Samo wyłączenie ładowania wag pozostawia domyślne zamrożenie VLM. Jego losowe parametry nie będą się wtedy uczyć.">Tylko --no-load-vlm-weights.</button>
+<button type="button" data-correct="false" data-feedback="Tryb offline steruje dostępem do Hub, a nie gradientami ani inicjalizacją parametrów.">Wyłączyć HF_HUB_OFFLINE.</button>
+<button type="button" data-correct="true" data-feedback="Tak. Oprócz wyłączenia ładowania wag trzeba świadomie wyłączyć train_expert_only i freeze_vision_encoder. To nadal wymaga walidacji zasobów i treningu.">Wyłączyć ładowanie wag oraz zamrożenie VLM i enkodera obrazu.</button>
+</div><p class="feedback" aria-live="polite"></p></div>
+<div class="question"><h3>3. Jaki efekt ma use_amp=true przy device=cpu w nowym lokalnym trenerze?</h3><div class="options">
+<button type="button" data-correct="true" data-feedback="Tak. Warunek wymaga także urządzenia o nazwie zaczynającej się od cuda. Nowo tworzony Accelerator otrzyma mixed_precision=no.">Mixed precision zostaje wyłączone.</button>
+<button type="button" data-correct="false" data-feedback="Kod nie wybiera BF16. Wybiera FP16 tylko dla CUDA z use_amp=true, a poza tym no.">Automatycznie wybierane jest BF16.</button>
+<button type="button" data-correct="false" data-feedback="Ustawienie nie przenosi treningu z CPU na GPU. force_cpu pozostaje przekazywane do Accelerate.">Trener przełącza urządzenie na CUDA.</button>
+</div><p class="feedback" aria-live="polite"></p></div>
+<div class="question"><h3>4. ACT już trzyma /tmp/train.lock. Co zrobi skrypt SmolVLA?</h3><div class="options">
+<button type="button" data-correct="false" data-feedback="Opcja -n oznacza próbę nieblokującą. Skrypt nie ustawia kolejki oczekiwania na ukończenie ACT.">Poczeka, aż ACT skończy trening.</button>
+<button type="button" data-correct="true" data-feedback="Tak. flock -n nie uzyska zajętej blokady i nie uruchomi polecenia treningu. Sam zapis PID przez skrypt w tle nie potwierdza sukcesu startu.">Nie uruchomi treningu, bo próba zdobycia blokady zakończy się niepowodzeniem.</button>
+<button type="button" data-correct="false" data-feedback="Oba skrypty wskazują teraz ten sam plik blokady. Typ modelu nie tworzy osobnej blokady.">Uruchomi się, bo SmolVLA ma inną blokadę niż ACT.</button>
+</div><p class="feedback" aria-live="polite"></p></div>
+<div class="question"><h3>5. Co potwierdzają nowe testy kodowania zadania?</h3><div class="options">
+<button type="button" data-correct="false" data-feedback="Testy nie uruchamiają modelu ani treningu. Nie mierzą precyzji obliczeń ani zachowania GPU.">Że AMP działa podczas optymalizacji na GPU.</button>
+<button type="button" data-correct="false" data-feedback="Kompletność cache nie jest sprawdzana przez testy wektorów one-hot. Wymaga osobnego sprawdzenia środowiska.">Że offline cache zawiera wszystkie wagi SmolVLA.</button>
+<button type="button" data-correct="true" data-feedback="Tak. Testy porównują cable, rail i port dla dwóch celów SC oraz dziesięciu kombinacji SFP. Nie dowodzą jakości inferencji ani sukcesu w symulatorze.">Zgodność wektorów dwóch celów SC i brak regresji dziesięciu kombinacji SFP.</button>
+</div><p class="feedback" aria-live="polite"></p></div>
+</section>
+<section id="sources"><h2>Źródła i pełny zakres plików</h2>
+<p>Podstawą jest lokalny diff względem HEAD oraz nowy test. Nie jest to porównanie gałęzi z upstreamem. Zachowanie bibliotek sprawdzono w lokalnych źródłach LeRobot i Accelerate podczas tej sesji. Opis dotyczy migawki kodu z chwili utworzenia dokumentu.</p>
+<ul class="inventory">
+<li>.vscode/tasks.json</li><li>AGENTS.md</li><li>pixi.toml</li><li>tools/README.md</li><li>tools/train_custom_act.py</li><li>tools/train_smolvla.py</li><li>tools/lerobot_train_v051.py</li><li>tools/start_act_training.sh</li><li>tools/start_smolvla_training.sh</li><li>aic_example_policies/README.md</li><li>aic_example_policies/aic_example_policies/ros/ACTTrainedPolicy.py</li><li>aic_example_policies/aic_example_policies/ros/SmolVLATrainedPolicy.py</li><li>aic_example_policies/aic_example_policies/ros/implementations/__init__.py</li><li>aic_example_policies/aic_example_policies/ros/implementations/act.py</li><li>aic_example_policies/aic_example_policies/ros/implementations/smolvla.py</li><li>aic_example_policies/aic_example_policies/ros/implementations/utils.py</li><li>aic_example_policies/test/test_task_encoding.py — nowy plik</li>
+</ul>
+</section>
+<footer>Samodzielny dokument HTML · CSS i JavaScript osadzone lokalnie · Brak żądań sieciowych i zależności CDN.</footer>
+</main>
+<script>
+"use strict";
+document.querySelectorAll(".question").forEach(function (question) {
+  question.querySelectorAll("button").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var correct = button.dataset.correct === "true";
+      question.querySelectorAll("button").forEach(function (option) {
+        option.disabled = true;
+        if (option.dataset.correct === "true") option.classList.add("correct");
+      });
+      button.setAttribute("aria-pressed", "true");
+      if (!correct) button.classList.add("incorrect");
+      question.querySelector(".feedback").textContent =
+        (correct ? "Dobrze. " : "Niepoprawna odpowiedź. ") + button.dataset.feedback;
+    });
+  });
+});
+</script>
+</body></html>

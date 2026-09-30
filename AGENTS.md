@@ -46,7 +46,7 @@ Use this decision order by default:
 
 ## Tooling
 
-- Prefix shell commands with `rtk` by default, following `/home/mbed/.codex/RTK.md`.
+- Prefix shell commands with `rtk` by default, following `~/.codex/RTK.md`.
 - Use `rg` or `rg --files` for search before slower alternatives.
 - Avoid heavyweight, simulator-dependent, hardware-facing, destructive, or deployment-affecting commands unless explicitly requested or clearly safe.
 

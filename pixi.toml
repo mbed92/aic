@@ -39,7 +39,7 @@ setuptools = ">=71.0.0,<81.0.0"                                                 
 
 [pypi-dependencies]
 huggingface-hub = { version = "~=1.7" }
-lerobot = "==0.5.1"
+lerobot = { version = "==0.5.1", extras = ["smolvla"] }
 lerobot_robot_ros = { git = "https://github.com/koonpeng/lerobot-ros", rev = "87708d0ae14a724bca78f8ae9d55448332509a57", subdirectory = "lerobot_robot_ros" }
 lerobot_teleoperator_devices = { git = "https://github.com/koonpeng/lerobot-ros", rev = "87708d0ae14a724bca78f8ae9d55448332509a57", subdirectory = "lerobot_teleoperator_devices" }
 mujoco = "==3.5.0"
@@ -61,7 +61,7 @@ cmd = "python tools/train_custom_act.py --use-amp"
 
 [tasks.TrainACTTrainedPolicyMulti]
 description = "Train ACTTrainedPolicy with the same wrapper defaults as TrainACTTrainedPolicy over local multi-dataset roots."
-cmd = "LEROBOT_MULTI_ROOTS=/home/mbed/aic-dagger-data/dagger_sc_138_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_372_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_493_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_85_cheatcode:/home/mbed/aic-dagger-data/dagger_sfp_753_cheatcode:/home/mbed/aic-dagger-data/dagger_sfp_300_finealign_v3:/home/mbed/aic-dagger-data/dagger_sfp_iter3_finealign python tools/train_custom_act.py --use-amp --train-command 'python tools/lerobot_train_v051.py' --dataset-root /home/mbed/aic-dagger-data/dagger_sc_138_cheatcode --job-name act_multi_lerobot_v051"
+cmd = "LEROBOT_MULTI_ROOTS=~/datasets/aic-dagger-data/dagger_sc_138_cheatcode:~/datasets/aic-dagger-data/dagger_sc_372_cheatcode:~/datasets/aic-dagger-data/dagger_sc_493_cheatcode:~/datasets/aic-dagger-data/dagger_sc_85_cheatcode:~/datasets/aic-dagger-data/dagger_sfp_753_cheatcode:~/datasets/aic-dagger-data/dagger_sfp_300_finealign_v3:~/datasets/aic-dagger-data/dagger_sfp_iter3_finealign python tools/train_custom_act.py --use-amp --train-command 'python tools/lerobot_train_v051.py' --dataset-root ~/datasets/aic-dagger-data/dagger_sc_138_cheatcode --job-name act_multi_lerobot_v051"
 
 [tasks.TrainCustomACTMulti]
 description = "Deprecated compatibility alias for TrainACTTrainedPolicyMulti."
@@ -69,4 +69,4 @@ cmd = "pixi run TrainACTTrainedPolicyMulti"
 
 [tasks.TrainSmolVLATrainedPolicy]
 description = "Train SmolVLATrainedPolicy over the same local multi-dataset roots as TrainACTTrainedPolicyMulti."
-cmd = "LEROBOT_MULTI_ROOTS=/home/mbed/aic-dagger-data/dagger_sc_138_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_372_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_493_cheatcode:/home/mbed/aic-dagger-data/dagger_sc_85_cheatcode:/home/mbed/aic-dagger-data/dagger_sfp_753_cheatcode:/home/mbed/aic-dagger-data/dagger_sfp_300_finealign_v3:/home/mbed/aic-dagger-data/dagger_sfp_iter3_finealign python tools/train_smolvla.py --use-amp --train-command 'python tools/lerobot_train_v051.py' --dataset-root /home/mbed/aic-dagger-data/dagger_sc_138_cheatcode --job-name smolvla_multi_lerobot_v051"
+cmd = "LEROBOT_MULTI_ROOTS=~/datasets/aic-dagger-data/dagger_sc_138_cheatcode:~/datasets/aic-dagger-data/dagger_sc_372_cheatcode:~/datasets/aic-dagger-data/dagger_sc_493_cheatcode:~/datasets/aic-dagger-data/dagger_sc_85_cheatcode:~/datasets/aic-dagger-data/dagger_sfp_753_cheatcode:~/datasets/aic-dagger-data/dagger_sfp_300_finealign_v3:~/datasets/aic-dagger-data/dagger_sfp_iter3_finealign python tools/train_smolvla.py --use-amp --train-command 'python tools/lerobot_train_v051.py' --dataset-root ~/datasets/aic-dagger-data/dagger_sc_138_cheatcode --job-name smolvla_multi_lerobot_v051"

@@ -13,7 +13,7 @@ from typing import Sequence
 
 
 DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
-DEFAULT_DATASET_ROOT = "~/dataset/aic-dagger-data"
+DEFAULT_DATASET_ROOT = "~/datasets/aic-dagger-data"
 DEFAULT_HF_HOME = "~/hf_cache"
 DEFAULT_RUN_NAME = "smolvla_aic_dagger_data"
 DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/smolvla/{DEFAULT_RUN_NAME}"
@@ -141,8 +141,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, 
     )
     parser.add_argument(
         "--load-vlm-weights",
-        action="store_true",
-        help="Set --policy.load_vlm_weights=true. Default is false.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Load pretrained VLM weights. Default is true; disable explicitly for training from scratch.",
     )
 
     return parser.parse_known_args(argv)

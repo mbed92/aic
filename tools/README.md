@@ -11,7 +11,8 @@ pixi run <task-name> [tool arguments]
 
 ## Download Hugging Face Dataset
 
-Download the default AIC dataset to the external T7 paths:
+Download the default AIC dataset to `~/datasets/aic-dagger-data`, using
+`~/hf_cache` as the Hugging Face cache:
 
 ```bash
 pixi run download-hf-dataset
@@ -37,31 +38,6 @@ Useful flags:
 By default, the downloader sets `HF_HUB_DISABLE_XET=1`. Use `--enable-xet` to
 leave Xet enabled.
 
-## Test LeRobot Dataset Loading
-
-Load the default dataset and print the dataset object, length, and sample keys:
-
-```bash
-pixi run test-lerobot-dataset-load
-```
-
-Override the Hugging Face repo, local root, or cache root:
-
-```bash
-pixi run test-lerobot-dataset-load \
-  --repo-id bha-51/aic-dagger-data \
-  --root /media/mbed/T7/datasets/aic/aic-dagger-data \
-  --hf-home /media/mbed/T7/hf_cache
-```
-
-Useful flags:
-
-- `--sample-index <n>`: print keys for a specific dataset item.
-- `--episode <id>`: restrict loading to one episode; repeat for multiple episodes.
-- `--revision <ref>`: load a specific branch, tag, or commit.
-- `--no-download-videos`: skip video downloads during load.
-- `--force-cache-sync`: refresh LeRobot cache metadata/files.
-
 ## Train ACTTrainedPolicy
 
 Run a short ACT training smoke job on the default local dataset:
@@ -73,7 +49,7 @@ pixi run TrainACTTrainedPolicy
 Defaults:
 
 - dataset repo: `bha-51/aic-dagger-data`
-- dataset root: `/home/mbed/aic-dagger-data`
+- dataset root: `~/datasets/aic-dagger-data`
 - output dir: `aic-dagger-data-outputs/train/act/act_aic_dagger_data`
 - log file: `aic-dagger-data-outputs/train/act/act_aic_dagger_data.log`
 - training: `--policy.type=act`, `--batch_size=4`, `--steps=80000`, `--save_freq=5000`, `--log_freq=100`, `--policy.chunk_size=10`, `--policy.n_action_steps=10`
@@ -108,7 +84,9 @@ If the output directory already contains a previous run, choose a new
 Run the local LeRobot v0.5.1 training script with `LEROBOT_MULTI_ROOTS` set to
 the configured AIC dataset folders. This task uses the same
 `tools/train_custom_act.py` wrapper defaults as `TrainACTTrainedPolicy`, but
-swaps the underlying training command to `tools/lerobot_train_v051.py`:
+swaps the underlying training command to `tools/lerobot_train_v051.py`.
+The local trainer uses FP16 mixed precision when `--policy.use_amp=true` on
+CUDA, and disables mixed precision otherwise:
 
 ```bash
 pixi run TrainACTTrainedPolicyMulti
@@ -118,19 +96,19 @@ For a workstation-safe background run, use `tools/start_act_training.sh`.
 It starts ACT training inside a systemd scope with `MemoryMax=20G` and
 `MemorySwapMax=8G`.
 
-- `--batch-size 2`
-- `--num-workers 1`
-- `--save-freq 10000`
+- `--batch-size 16`
+- `--num-workers 4`
+- `--save-freq 5000`
 
 The task reads from these local dataset roots without physically merging them:
 
-- `/home/mbed/aic-dagger-data/dagger_sc_138_cheatcode`
-- `/home/mbed/aic-dagger-data/dagger_sc_372_cheatcode`
-- `/home/mbed/aic-dagger-data/dagger_sc_493_cheatcode`
-- `/home/mbed/aic-dagger-data/dagger_sc_85_cheatcode`
-- `/home/mbed/aic-dagger-data/dagger_sfp_753_cheatcode`
-- `/home/mbed/aic-dagger-data/dagger_sfp_300_finealign_v3`
-- `/home/mbed/aic-dagger-data/dagger_sfp_iter3_finealign`
+- `~/datasets/aic-dagger-data/dagger_sc_138_cheatcode`
+- `~/datasets/aic-dagger-data/dagger_sc_372_cheatcode`
+- `~/datasets/aic-dagger-data/dagger_sc_493_cheatcode`
+- `~/datasets/aic-dagger-data/dagger_sc_85_cheatcode`
+- `~/datasets/aic-dagger-data/dagger_sfp_753_cheatcode`
+- `~/datasets/aic-dagger-data/dagger_sfp_300_finealign_v3`
+- `~/datasets/aic-dagger-data/dagger_sfp_iter3_finealign`
 
 ## Train SmolVLATrainedPolicy
 
@@ -143,6 +121,12 @@ pixi run TrainSmolVLATrainedPolicy
 
 This task uses `tools/train_smolvla.py`, `--policy.type=smolvla`, and the local
 LeRobot v0.5.1 training script at `tools/lerobot_train_v051.py`.
+The wrapper loads pretrained VLM weights by default. `--no-load-vlm-weights`
+is reserved for explicit training-from-scratch experiments; in that case,
+also configure `--policy.train_expert_only=false` and
+`--policy.freeze_vision_encoder=false` so the randomly initialized VLM can train.
+The background helper sets `HF_HUB_OFFLINE=1`, so the model weights,
+configuration, and processor files must already be available in `~/hf_cache`.
 
 Check the resolved training command without starting a run:
 

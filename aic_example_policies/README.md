@@ -90,11 +90,14 @@ A standalone LeRobot ACT policy that loads a checkpoint from a filesystem path i
 - `observation.images.{left,center,right}_camera`: wrist camera images
 - `action`: 9 values representing an absolute TCP pose target, `[x, y, z, rot6d_0..5]`
 
+For SC tasks, `sc_port_0` and `sc_port_1` select `rail_0` and `rail_1`,
+respectively, with `port=[1, 0]`, matching the training data.
+
 The checkpoint path must be supplied through `ACT_TRAINED_POLICY_PATH`. The VS Code
 `Policy: start ACTTrainedPolicy` task prompts for this value and defaults the checkpoint path to:
 
 ```bash
-/home/mbed/Projects/aic/aic-dagger-data-outputs/act/train/20260619_105152/checkpoints/last/pretrained_model
+~/aic/aic-dagger-data-outputs/train/act/20260619_105152/checkpoints/last/pretrained_model
 ```
 
 The checkpoint directory must contain `config.json`, `model.safetensors`,

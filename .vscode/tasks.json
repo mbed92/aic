@@ -84,7 +84,8 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "DBX_CONTAINER_MANAGER": "docker"
+                    "DBX_CONTAINER_MANAGER": "docker",
+                    "DISPLAY": ":1"
                 }
             },
             "presentation": {
@@ -103,7 +104,8 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "DBX_CONTAINER_MANAGER": "docker"
+                    "DBX_CONTAINER_MANAGER": "docker",
+                    "DISPLAY": ":1"
                 }
             },
             "presentation": {
@@ -122,7 +124,8 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "DBX_CONTAINER_MANAGER": "docker"
+                    "DBX_CONTAINER_MANAGER": "docker",
+                    "DISPLAY": ":1"
                 }
             },
             "presentation": {
@@ -141,7 +144,8 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "DBX_CONTAINER_MANAGER": "docker"
+                    "DBX_CONTAINER_MANAGER": "docker",
+                    "DISPLAY": ":1"
                 }
             },
             "presentation": {
@@ -350,13 +354,13 @@
             "id": "actTrainedPolicyPath",
             "type": "promptString",
             "description": "ACTTrainedPolicy checkpoint directory",
-            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/act/20260619_105152/checkpoints/last/pretrained_model"
+            "default": "~/aic/aic-dagger-data-outputs/train/act/20260619_105152/checkpoints/last/pretrained_model"
         },
         {
             "id": "smolVLATrainedPolicyPath",
             "type": "promptString",
             "description": "SmolVLATrainedPolicy checkpoint directory",
-            "default": "/home/mbed/Projects/aic/aic-dagger-data-outputs/train/smolvla/checkpoints/last/pretrained_model"
+            "default": "~/aic/aic-dagger-data-outputs/train/smolvla/checkpoints/last/pretrained_model"
         },
         {
             "id": "taskId",

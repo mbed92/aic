@@ -324,6 +324,11 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
             step_scheduler_with_optimizer=False,
             kwargs_handlers=[ddp_kwargs],
             cpu=force_cpu,
+            mixed_precision=(
+                "bf16" if cfg.policy.type == "smolvla" else "fp16")
+                if cfg.policy.use_amp 
+                and str(cfg.policy.device).startswith("cuda")
+            else "no"
         )
 
     init_logging(accelerator=accelerator)
