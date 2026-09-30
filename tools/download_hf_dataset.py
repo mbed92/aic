@@ -10,8 +10,8 @@ from typing import Sequence
 
 
 DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
-DEFAULT_LOCAL_DIR = "/media/mbed/T7/datasets/aic/aic-dagger-data"
-DEFAULT_HF_HOME = "/media/mbed/T7/hf_cache"
+DEFAULT_LOCAL_DIR = "~/datasets/aic-dagger-data"
+DEFAULT_HF_HOME = "~/hf_cache"
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

@@ -13,8 +13,8 @@ from typing import Sequence
 
 
 DEFAULT_REPO_ID = "bha-51/aic-dagger-data"
-DEFAULT_DATASET_ROOT = "/home/mbed/aic-dagger-data"
-DEFAULT_HF_HOME = "/home/mbed/hf_cache"
+DEFAULT_DATASET_ROOT = "~/dataset/aic-dagger-data"
+DEFAULT_HF_HOME = "~/hf_cache"
 DEFAULT_RUN_NAME = "smolvla_aic_dagger_data"
 DEFAULT_OUTPUT_DIR = f"aic-dagger-data-outputs/train/smolvla/{DEFAULT_RUN_NAME}"
 DEFAULT_VLM_MODEL_NAME = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"
