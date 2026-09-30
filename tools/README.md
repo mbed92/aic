@@ -62,27 +62,27 @@ Useful flags:
 - `--no-download-videos`: skip video downloads during load.
 - `--force-cache-sync`: refresh LeRobot cache metadata/files.
 
-## Train Custom ACT
+## Train ACTTrainedPolicy
 
 Run a short ACT training smoke job on the default local dataset:
 
 ```bash
-pixi run TrainCustomACT
+pixi run TrainACTTrainedPolicy
 ```
 
 Defaults:
 
 - dataset repo: `bha-51/aic-dagger-data`
-- dataset root: `/media/mbed/T7/datasets/aic/aic-dagger-data`
-- output dir: `/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data`
-- log file: `/media/mbed/T7/datasets/aic/aic-dagger-data-outputs/train/act_aic_dagger_data.log`
-- training: `--policy.type=act`, `--batch_size=2`, `--steps=80000`, `--save_freq=5000`, `--log_freq=100`, `--policy.chunk_size=10`, `--policy.n_action_steps=10`
+- dataset root: `/home/mbed/aic-dagger-data`
+- output dir: `aic-dagger-data-outputs/train/act/act_aic_dagger_data`
+- log file: `aic-dagger-data-outputs/train/act/act_aic_dagger_data.log`
+- training: `--policy.type=act`, `--batch_size=4`, `--steps=80000`, `--save_freq=5000`, `--log_freq=100`, `--policy.chunk_size=10`, `--policy.n_action_steps=10`
 - disabled by default: Hub push and WandB
 
 Override common training inputs:
 
 ```bash
-pixi run TrainCustomACT \
+pixi run TrainACTTrainedPolicy \
   --steps 1000 \
   --batch-size 8 \
   --output-dir outputs/train/act_aic_v3
@@ -91,13 +91,13 @@ pixi run TrainCustomACT \
 Check the resolved training command without starting a run:
 
 ```bash
-pixi run TrainCustomACT --print-command
+pixi run TrainACTTrainedPolicy --print-command
 ```
 
 Any unknown argument is forwarded to `lerobot-train`, for example:
 
 ```bash
-pixi run TrainCustomACT --policy.optimizer_lr=1e-4
+pixi run TrainACTTrainedPolicy --policy.optimizer_lr=1e-4
 ```
 
 If the output directory already contains a previous run, choose a new
@@ -107,16 +107,16 @@ If the output directory already contains a previous run, choose a new
 
 Run the local LeRobot v0.5.1 training script with `LEROBOT_MULTI_ROOTS` set to
 the configured AIC dataset folders. This task uses the same
-`tools/train_custom_act.py` wrapper defaults as `TrainCustomACT`, but swaps the
-underlying training command to `tools/lerobot_train_v051.py`:
+`tools/train_custom_act.py` wrapper defaults as `TrainACTTrainedPolicy`, but
+swaps the underlying training command to `tools/lerobot_train_v051.py`:
 
 ```bash
-pixi run TrainCustomACTMulti
+pixi run TrainACTTrainedPolicyMulti
 ```
 
-For a workstation-safe background run, use `tools/start_training_helper.sh`.
-It starts `TrainCustomACTMulti` inside a systemd scope with `MemoryMax=20G` and
-`MemorySwapMax=8G`, and passes defensive training settings:
+For a workstation-safe background run, use `tools/start_act_training.sh`.
+It starts ACT training inside a systemd scope with `MemoryMax=20G` and
+`MemorySwapMax=8G`.
 
 - `--batch-size 2`
 - `--num-workers 1`
@@ -124,11 +124,51 @@ It starts `TrainCustomACTMulti` inside a systemd scope with `MemoryMax=20G` and
 
 The task reads from these local dataset roots without physically merging them:
 
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_138_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_372_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_493_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sc_85_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_483_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_753_cheatcode`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_300_finealign_v3`
-- `/media/mbed/T7/datasets/aic/aic-dagger-data/dagger_sfp_iter3_finealign`
+- `/home/mbed/aic-dagger-data/dagger_sc_138_cheatcode`
+- `/home/mbed/aic-dagger-data/dagger_sc_372_cheatcode`
+- `/home/mbed/aic-dagger-data/dagger_sc_493_cheatcode`
+- `/home/mbed/aic-dagger-data/dagger_sc_85_cheatcode`
+- `/home/mbed/aic-dagger-data/dagger_sfp_753_cheatcode`
+- `/home/mbed/aic-dagger-data/dagger_sfp_300_finealign_v3`
+- `/home/mbed/aic-dagger-data/dagger_sfp_iter3_finealign`
+
+## Train SmolVLATrainedPolicy
+
+Run SmolVLA training on the same local multi-dataset roots used by
+`TrainACTTrainedPolicyMulti`:
+
+```bash
+pixi run TrainSmolVLATrainedPolicy
+```
+
+This task uses `tools/train_smolvla.py`, `--policy.type=smolvla`, and the local
+LeRobot v0.5.1 training script at `tools/lerobot_train_v051.py`.
+
+Check the resolved training command without starting a run:
+
+```bash
+pixi run TrainSmolVLATrainedPolicy --print-command
+```
+
+Run a short smoke job with smaller settings:
+
+```bash
+pixi run TrainSmolVLATrainedPolicy \
+  --steps 1000 \
+  --batch-size 1
+```
+
+For a workstation-safe background run, use:
+
+```bash
+bash tools/start_smolvla_training.sh
+```
+
+The SmolVLA helper starts the task inside a systemd scope with `MemoryMax=20G`
+and `MemorySwapMax=8G`, and passes conservative training settings:
+
+- `--batch-size 1`
+- `--num-workers 1`
+- `--save-freq 10000`
+- `--chunk-size 50`
+- `--n-action-steps 50`
